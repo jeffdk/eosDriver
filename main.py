@@ -19,8 +19,11 @@ def func(rho):
     global ye
     global temp
     theDict = {'rho': rho, 'ye': ye, 'temp': temp}
-    print theDict
-    shen.setState(theDict)
+    if ye > 0:
+        shen.setState(theDict)
+    else:
+        theDict = {'rho': rho, 'temp': temp}
+        shen.setBetaEqState(theDict)
     return shen.query('logpress')
 
 vfunc = numpy.frompyfunc(func,1,1)
@@ -31,18 +34,19 @@ rhos = numpy.power(10.0,logrhos)
 
 print logrhos
 print rhos
+legend = ["Ye = BetaEq"]
 
-ye = 0.1
+ye =  -1.0 #beta equilibrum
 temp = 0.5
 
 xs = logrhos
 yscold = numpy.power(10.0, vfunc(rhos))
-
+print '--'
 temp = 20.0
 yshot = numpy.power(10.0, vfunc(rhos))
-
+mpl.plot(xs,yshot/yscold)
 yes = [0.05, 0.1, 0.2, 0.3]
-legend = []
+
 for thisYe in yes:
     global ye
     ye = thisYe

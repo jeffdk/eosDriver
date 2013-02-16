@@ -54,6 +54,25 @@ class eos(object):
         """
         self.physicalState = (None for unused in self.indVars)
 
+    def setBetaEqState(self, pointDict):
+        assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
+                                      "setting neutrinoless beta equlibrium!"
+        assert all([key in self.indVars for key in pointDict.keys()])
+
+        tableIndexes=[]
+        for indVar in self.indVars:
+            if indVar in pointDict:
+                tableIndexes.append(self.lookupIndex(indVar, pointDict[indVar]))
+            elif indVar == 'ye':
+                tableIndexes.append(None)
+            else:
+                assert False, "indVar %s is not ye or in pointDict!" % indVar
+        #print tableIndexes
+        newDict  = pointDict.copy()
+        newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes)
+        print newDict['ye']
+        self.setState(newDict)
+
     def query(self, quantity):
         """
         Query's the EOS table looking for 'quantity' at set physical state
@@ -70,6 +89,38 @@ class eos(object):
         answer = self.interpolateTable(tableIndexes, quantity)
         self.clearState()
         return answer
+
+    # neutrinoless beta-equilibrium occurs when mu_n = mu_e + mu_p
+    # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
+    # TODO: FIX THIS TO ACTUALLY DO PROPER INTERPOLATION INSTEAD OF LOWER NEIGHBOR IN RHO AND TEMP!
+    def getYeBetaEqFromTable(self,tableIndex):
+        #print tableIndex
+        y = self.h5file['munu']
+        #print y
+        #print len(y)
+        firstPoint = tuple( 0 if val is None else val for val in tableIndex  )
+        lastY = y[firstPoint]
+        gotZero = False
+        for i in range(len(y)):
+            thisPoint = []
+            for j in tableIndex:
+                if j == None:
+                    thisPoint.append(i)
+                else:
+                    thisPoint.append(j)
+            thisPoint = tuple(thisPoint)
+            currentY = y[thisPoint]
+            #print thisPoint, currentY, self.h5file['ye'][i]
+            if currentY * lastY < 0.0:
+                gotZero = True
+                break
+            lastY = currentY
+
+        index = i -1
+        #print index
+        dmunu = -lastY/(currentY - lastY)
+        #print 'dmunu, ', dmunu
+        return self.h5file['ye'][index] * ( 1.-dmunu) + self.h5file['ye'][index+1]*dmunu
 
     def lookupIndex(self, indVar, value):
         """
