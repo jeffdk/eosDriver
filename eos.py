@@ -6,7 +6,15 @@ import numpy
 class eos(object):
 
     valuesDict = None
-    indVars = ('rho', 'ye', 'temp')  #indepenednt variables
+    # Independent variables; assumes these are the independent variables in the
+    # table.  Routines check to see if they are stored as 'log' + var
+    # independent variables are REORDERED in __init__ so that they
+    # correspond to the correct ordering of the dependent variable table axes.
+    indVars = ('rho', 'ye', 'temp')
+    # Physical state contains the  values of the independent variables in the
+    # order determined in __init__
+    physicalState = (None, None, None)
+
     logVars = ('energy', 'press', 'rho', 'temp')
 
     h5file = None
@@ -14,7 +22,7 @@ class eos(object):
     def __init__(self, tableFilename):
 
         self.h5file = h5py.File(tableFilename, 'r')
-
+        print self.h5file.keys()
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
@@ -27,22 +35,41 @@ class eos(object):
                     break
         self.indVars = tuple(newOrdering)
 
+    def setState(self, pointDict):
+        """
+        Takes dictionary defining a physical state, aka the EOS table's
+        independent variables, and sets the physical state.
+        """
+        state = []
+        for indVar in self.indVars:
+            assert indVar in pointDict,\
+                "You have not specified an required independent variable in pointDict!"
+            state.append( pointDict[indVar] )
+        self.physicalState = list(state)
 
-    def query(self, pointDict, quantity):
-        answer = 0
+    def clearState(self):
+        """
+        Resets the physicalState member variable to Nones.
+        Should prevent the query member from being called.
+        """
+        self.physicalState = (None for unused in self.indVars)
+
+    def query(self, quantity):
+        """
+        Query's the EOS table looking for 'quantity' at set physical state
+        Note: query clears physical state after quantity is determined!
+        """
+        assert all(self.physicalState), "One or more independent variables " \
+                                        "not set for this EOS's physical state!"
 
         tableIndexes = []
-        for indVar in self.indVars:
-            assert indVar in pointDict, \
-                "You have not specified an required independent variable in pointDict!"
-            #print indVar
-            value = pointDict[indVar]
-
-            #print indVar, value
+        for i, indVar in enumerate(self.indVars):
+            value = self.physicalState[i]
             tableIndexes.append(self.lookupIndex(indVar, value))
 
-
-        return self.interpolateTable(pointDict, tableIndexes, quantity)
+        answer = self.interpolateTable(tableIndexes, quantity)
+        self.clearState()
+        return answer
 
     def lookupIndex(self, indVar, value):
         """
@@ -73,16 +100,24 @@ class eos(object):
     # for log spacing in independent or dependent variable
     # got lazy; am not generalizing, copying from
     # http://en.wikipedia.org/wiki/Trilinear_interpolation
-    def interpolateTable(self, pointDict, tableIndex, quantity):
+    # Note: index lookup is separated from interpolation routine
+    #       so that different interpolators may be written and plugged in
+    def interpolateTable(self, tableIndex, quantity):
+        """
+        Given table indexes preceding location of independent variables
+        (physical state), does trilinear interpolation of 'quantity' to the
+         current physical state.
+        """
         #print tableIndex, quantity
         tableIndex = tuple(tableIndex)
         y = self.h5file[quantity]
 
-        xs = []
-        x0 = []
-        x1 = []
+
+        xs = [] # xs is vector x, y, z from wikipeida
+        x0 = [] # x0 is vector x0, y0, z0 from wikipedia
+        x1 = [] # x0 is vector x1, y1, z1 from wikipedia
         for i, indVar in enumerate(self.indVars):
-            value = pointDict[indVar]
+            value = self.physicalState[i]
             if indVar in self.logVars:
                 value = math.log10(value)
                 indVar = 'log' + indVar

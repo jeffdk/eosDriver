@@ -9,7 +9,8 @@ ls220 = eos('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 #print ls220.lookupIndex('rho',1e4)
 #ls220.lookupIndex('temp',10.0)
 ls220.lookupIndex('rho',10000.0)
-print ls220.query({'rho': 1e14, 'ye': .1, 'temp': 0.5}, 'logpress')
+ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
+print ls220.query('logpress')
 
 def func(rho):
 
@@ -19,7 +20,8 @@ def func(rho):
     global temp
     theDict = {'rho': rho, 'ye': ye, 'temp': temp}
     print theDict
-    return shen.query(theDict, 'logpress')
+    shen.setState(theDict)
+    return shen.query('logpress')
 
 vfunc = numpy.frompyfunc(func,1,1)
 
