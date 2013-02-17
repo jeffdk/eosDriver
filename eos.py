@@ -28,19 +28,23 @@ class eos(object):
 
     h5file = None
 
+    #dependent variables table shape; set as shape of 'logpress'
+    tableShape = None
+
     def __init__(self, tableFilename):
         """
         eos class constructor takes a h5 file filename for a
         stellarcollapse.org EOS file
         """
         self.h5file = h5py.File(tableFilename, 'r')
+        self.tableShape = numpy.shape(self.h5file['logpress'])
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
         for indVar in self.indVars:
             key = 'points' + indVar
             points = self.h5file[key][0]
-            for ithAxis, ithAxesPoints in enumerate(numpy.shape(self.h5file['logpress'])):
+            for ithAxis, ithAxesPoints in enumerate(self.tableShape):
                 if ithAxesPoints == points:
                     newOrdering[ithAxis] = indVar
                     break
@@ -127,6 +131,8 @@ class eos(object):
         previousPoint = tuple( 0 if val is None else val for val in tableIndex )
         currentMunu = previousMunu = munu[previousPoint]
         gotZero = False
+        closestYeToZero = ye[0]
+        debugList = []
         i = 0
         for i in range(len(munu)):
             thisPoint = []
@@ -138,16 +144,25 @@ class eos(object):
             thisPoint = tuple(thisPoint)
             #adjust physical state to current state
             self.physicalState = tuple( ye[i] if val is None else val for val in partialNewState )
-            currentMunu = self.interpolateTable(thisPoint, 'munu')
+            debugList.append( [thisPoint,  currentMunu,
+                               self.physicalState, 'munupoint:', munu[previousPoint]])
+            currentMunu = self.interpolateTable(previousPoint, 'munu')
             #print thisPoint, currentMunu , self.physicalState
+            if abs(ye[i] < closestYeToZero):
+                ye[i] = closestYeToZero
             if currentMunu * previousMunu < 0.0:
                 gotZero = True
                 break
             previousPoint = thisPoint
             previousMunu = currentMunu
-        assert gotZero, \
-            "Did not find zero of munu for all ye at non-ye parameters: %s" % partialNewState
-
+        #assert gotZero, \
+        #    "Did not find zero of munu for all ye at non-ye parameters: %s" % partialNewState
+        if not gotZero:
+            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
+                  "RETURNING closestYeToZero INSTEAD"
+            for entry in debugList:
+                print entry
+            return closestYeToZero
         index = i - 1
         deltaMunu = -previousMunu / (currentMunu - previousMunu)
         return ye[index] * (1. - deltaMunu) + ye[index + 1] * deltaMunu
@@ -191,6 +206,9 @@ class eos(object):
          current physical state.
         """
         tableIndex = tuple(tableIndex)
+        assert all([tableIndex[i] +1 < self.tableShape[i] for i in range(len(tableIndex))]), \
+            "Table index + 1  specified to interpolateTable is out of tableShape range!"
+
         y = self.h5file[quantity]
 
         xs = []  # xs is vector x, y, z from wikipedia
