@@ -1,3 +1,12 @@
+"""
+ Defines an equation of state (eos) class which reads in a stellarcollapse.org
+ EOS .h5 file.  Then any quantity in the table can be queried.
+ Note: specify the independent variables for physical state in non-logspace;
+       the code checks to see if variable is in logspace and adjusts
+
+Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
+"""
+
 import h5py
 import math
 import numpy
@@ -20,9 +29,11 @@ class eos(object):
     h5file = None
 
     def __init__(self, tableFilename):
-
+        """
+        eos class constructor takes a h5 file filename for a
+        stellarcollapse.org EOS file
+        """
         self.h5file = h5py.File(tableFilename, 'r')
-        print self.h5file.keys()
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
@@ -39,6 +50,7 @@ class eos(object):
         """
         Takes dictionary defining a physical state, aka the EOS table's
         independent variables, and sets the physical state.
+        Modifies self.physicalState
         """
         state = []
         for indVar in self.indVars:
@@ -51,28 +63,38 @@ class eos(object):
         """
         Resets the physicalState member variable to Nones.
         Should prevent the query member from being called.
+        Modifies self.physicalState
         """
         self.physicalState = (None for unused in self.indVars)
 
     def setBetaEqState(self, pointDict):
+        """
+        Takes dictionary for physical state values EXCEPT Ye, then sets Ye
+        via solving for neutrino-less beta equilibrium.
+        Modifies self.physicalState
+        """
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
         assert all([key in self.indVars for key in pointDict.keys()])
 
         tableIndexes=[]
+        partialNewState=[]
         for indVar in self.indVars:
             if indVar in pointDict:
                 tableIndexes.append(self.lookupIndex(indVar, pointDict[indVar]))
+                partialNewState.append(pointDict[indVar])
             elif indVar == 'ye':
                 tableIndexes.append(None)
+                partialNewState.append(None)
             else:
                 assert False, "indVar %s is not ye or in pointDict!" % indVar
-        #print tableIndexes
-        newDict  = pointDict.copy()
-        newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes)
-        print newDict['ye']
+        # physical state for non-ye independent variables is required in
+        # getYeBetaEqFromTable for interpolation
+        newDict = pointDict.copy()
+        newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes, partialNewState)
         self.setState(newDict)
 
+    #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantity):
         """
         Query's the EOS table looking for 'quantity' at set physical state
@@ -90,41 +112,50 @@ class eos(object):
         self.clearState()
         return answer
 
-    # neutrinoless beta-equilibrium occurs when mu_n = mu_e + mu_p
+    # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
     # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
-    # TODO: FIX THIS TO ACTUALLY DO PROPER INTERPOLATION INSTEAD OF LOWER NEIGHBOR IN RHO AND TEMP!
-    def getYeBetaEqFromTable(self,tableIndex):
-        #print tableIndex
-        y = self.h5file['munu']
-        #print y
-        #print len(y)
-        firstPoint = tuple( 0 if val is None else val for val in tableIndex  )
-        lastY = y[firstPoint]
+    # TODO: The logic of this routine combined with setBetaYe is not great; refactor it
+    def getYeBetaEqFromTable(self, tableIndex, partialNewState):
+        """
+        Work routine to solve for Ye in neutrino-less beta equilibrium.
+        Expects 'None' in partialNewState list where Ye needs filling in
+        Modifies self.physicalState
+        """
+        munu = self.h5file['munu']
+        ye = self.h5file['ye']
+
+        previousPoint = tuple( 0 if val is None else val for val in tableIndex )
+        currentMunu = previousMunu = munu[previousPoint]
         gotZero = False
-        for i in range(len(y)):
+        i = 0
+        for i in range(len(munu)):
             thisPoint = []
             for j in tableIndex:
-                if j == None:
+                if j is None:
                     thisPoint.append(i)
                 else:
                     thisPoint.append(j)
             thisPoint = tuple(thisPoint)
-            currentY = y[thisPoint]
-            #print thisPoint, currentY, self.h5file['ye'][i]
-            if currentY * lastY < 0.0:
+            #adjust physical state to current state
+            self.physicalState = tuple( ye[i] if val is None else val for val in partialNewState )
+            currentMunu = self.interpolateTable(thisPoint, 'munu')
+            #print thisPoint, currentMunu , self.physicalState
+            if currentMunu * previousMunu < 0.0:
                 gotZero = True
                 break
-            lastY = currentY
+            previousPoint = thisPoint
+            previousMunu = currentMunu
+        assert gotZero, \
+            "Did not find zero of munu for all ye at non-ye parameters: %s" % partialNewState
 
-        index = i -1
-        #print index
-        dmunu = -lastY/(currentY - lastY)
-        #print 'dmunu, ', dmunu
-        return self.h5file['ye'][index] * ( 1.-dmunu) + self.h5file['ye'][index+1]*dmunu
+        index = i - 1
+        deltaMunu = -previousMunu / (currentMunu - previousMunu)
+        return ye[index] * (1. - deltaMunu) + ye[index + 1] * deltaMunu
 
     def lookupIndex(self, indVar, value):
         """
         Returns the index directly preceding value
+        Uses a dumb sequential search to find index.
         """
         assert indVar in self.indVars
 
@@ -132,17 +163,17 @@ class eos(object):
             value = math.log10(value)
             indVar = 'log' + indVar
 
-        lastValue = -1.0e300
+        previousValue = -1.0e300
         thisVal = None
         for i, thisVal in enumerate(self.h5file[indVar][:]):
-            assert thisVal > lastValue, \
+            assert thisVal > previousValue, \
                 "Lookup index assumes independent variable table is increasing!"
             #print thisVal
             if value < thisVal:
                 assert i > 0, "Uh oh, value %s for variable '%s' is below the table "\
                               "minimum: %s" % (value, indVar, thisVal)
                 return i - 1
-            lastValue = thisVal
+            previousValue = thisVal
         assert thisVal is not None, "Looks like table for %s is empty!" % indVar
         assert False, "Uh oh, value %s for variable '%s' is above the table "\
                       "maximum: %s" % (value, indVar, thisVal)
@@ -159,14 +190,12 @@ class eos(object):
         (physical state), does trilinear interpolation of 'quantity' to the
          current physical state.
         """
-        #print tableIndex, quantity
         tableIndex = tuple(tableIndex)
         y = self.h5file[quantity]
 
-
-        xs = [] # xs is vector x, y, z from wikipeida
-        x0 = [] # x0 is vector x0, y0, z0 from wikipedia
-        x1 = [] # x0 is vector x1, y1, z1 from wikipedia
+        xs = []  # xs is vector x, y, z from wikipedia
+        x0 = []  # x0 is vector x0, y0, z0 from wikipedia
+        x1 = []  # x0 is vector x1, y1, z1 from wikipedia
         for i, indVar in enumerate(self.indVars):
             value = self.physicalState[i]
             if indVar in self.logVars:
@@ -179,8 +208,7 @@ class eos(object):
         x0 = numpy.array(x0)
         x1 = numpy.array(x1)
 
-        dxs = (xs - x0)/(x1-x0)
-        #print dxs
+        dxs = (xs - x0) / (x1 - x0)  # dxs is xd, yd, zd from wikipedia
 
         #matrix is c[i,j] in wikipedia
         matrix = numpy.zeros([2,2])
