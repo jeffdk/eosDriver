@@ -97,6 +97,7 @@ class eos(object):
         newDict = pointDict.copy()
         newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes, partialNewState)
         self.setState(newDict)
+        return newDict['ye']
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantity):
