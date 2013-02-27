@@ -2,6 +2,7 @@ from eos import eos
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect
+import plot_defaults
 
 shen = eos('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
@@ -13,7 +14,7 @@ ls220.lookupIndex('rho',10000.0)
 ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
 print ls220.query('logpress')
 
-#print ls220.h5file['logrho'][:]
+#print ls220.h5file['logtemp'][:]
 interpVal = 3.1
 i =  lookupIndexBisect(interpVal, ls220.h5file['logrho'][:])
 print  i, ls220.h5file['logrho'][i],  ls220.h5file['logrho'][i + 1]
@@ -22,12 +23,51 @@ print i, ls220.h5file['logpress'][10,10,i], ls220.h5file['logpress'][10,10,i+1]
 print linInterp(interpVal,ls220.h5file['logrho'][:],
                 ls220.h5file['logpress'][10,10,:] )
 
-def p(logrho):
 
-    return linInterp(logrho,ls220.h5file['logrho'][:],
-                     ls220.h5file['logpress'][10,10,:]) - 19.3644130691
+print
+print "---------------"
+print
+getLogRhoIndex = lambda lr: lookupIndexBisect(lr, ls220.h5file['logrho'][:])
+def entropyOfT(logtemp, logrho):
 
-print solveRootBisect(p, 3.0, 4.0)
+    lrindex = getLogRhoIndex(logrho)
+    return linInterp(logtemp,ls220.h5file['logtemp'][:],
+                     ls220.h5file['entropy'][11, :, lrindex]) - 1.46
+
+
+logtemp = numpy.log10(30.)
+
+ye = 0.15
+
+logrhos = numpy.arange(12.0,16,0.1)
+
+print logrhos
+
+tindex = lookupIndexBisect(logtemp, ls220.h5file['logtemp'][:])
+yeindex = lookupIndexBisect(ye,  ls220.h5file['ye'][:])
+print "ye index:  ", yeindex
+print ls220.h5file['ye'][yeindex+1]
+ts=[]
+scheck=[]
+rollT =[]
+for lr in logrhos:
+    sOfT = lambda T: entropyOfT(T, lr)
+    getT = solveRootBisect(sOfT,-2.0,2.4)
+    ts.append(numpy.power(10.0,getT))
+    ls220.setState({'rho': numpy.power(10.0,lr), 'ye': 0.15, 'temp': numpy.power(10.0,getT)})
+    scheck.append(ls220.query('entropy'))
+    rollT.append(30/2.0*(1+numpy.tanh((lr-14.0)/0.5)) +0.5)
+
+print scheck
+print rollT
+mpl.plot(logrhos,ts)
+mpl.plot(logrhos,rollT,ls='--')
+mpl.xlabel(r"Log10($\rho_b$ CGS)")
+mpl.ylabel(r"T($\rho_b$)  $\,\,s = 1.46\, \frac{k_B}{baryon}$ ")
+#mpl.title("LS220")
+mpl.show()
+
+
 
 exit()
 

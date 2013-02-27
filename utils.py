@@ -5,7 +5,7 @@ Interpolators should take:
  Where
 """
 
-def solveRootBisect(func, x0, x1, relTol=1.0e-8, maxIterations=30):
+def solveRootBisect(func, x0, x1, relTol=1.0e-8, maxIterations=40):
     """
     Finds a root of func between x0 and x1
     to relative tolerance relTol
