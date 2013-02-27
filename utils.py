@@ -18,19 +18,27 @@ def linInterp(x, xs, ys):
     tableXmin = xs[0]
     tableXmax = xs[-1]
 
-    assert x > tableXmin, \
-        "x: %s \t is less than table minimum" % (x,tableXmin)
-    assert x < tableXmax, \
-        "x: %s \t is greater than table minimum" % (x,tableXmin)
+    assert x >= tableXmin, \
+        "x: %s \t is less than table minimum, %s" % (x,tableXmin)
+    assert x <= tableXmax, \
+        "x: %s \t is greater than table minimum, %s" % (x,tableXmin)
+    i = lookupIndexBisect(x, xs)
 
+    dx = (x - xs[i])/(xs[i+1] - xs[i])
+
+    return ys[i+1] * dx + (1.- dx) * ys[i]
 
 def lookupIndexBisect(x, xs):
     """
     Assuming a monotonically increasing list of values xs, returns
     the index directly preceding x.
+
+    Gives error for values less than list minimum but happily
+    returns maximum index for any value above the list maximum
     """
-    #todo: add out of bounds checks
-    upper = len(xs)
+    assert x >= xs[0], "there is no index preceding x, %s, since it " \
+                       "is below the table minimum: %s" % (x,xs[0])
+    upper = len(xs) -1
     lower = 0
 
     maxIters = upper
@@ -44,9 +52,11 @@ def lookupIndexBisect(x, xs):
             lower = nextIndex
         elif x < xs[nextIndex]:
             upper = nextIndex
+        elif x == xs[nextIndex]:
+            return nextIndex-1
 
         if abs(upper - lower) == 1:
-            print "diff is 1"
+            #print "diff is 1"
             foundIndex = True
             return lower
         iter += 1
