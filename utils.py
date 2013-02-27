@@ -5,6 +5,42 @@ Interpolators should take:
  Where
 """
 
+def solveRootBisect(func, x0, x1, relTol=1.0e-8, maxIterations=30):
+    """
+    Finds a root of func between x0 and x1
+    to relative tolerance relTol
+    """
+    assert func(x0) * func(x1) <= 0., "Root not bracketed by x0 and x1!"
+    if func(x0) == 0.:
+        return x0
+    if func(x1) == 0.:
+        return x1
+
+    upper = x1
+    lower = x0
+
+    foundRoot = False
+
+    iteration = 0
+
+    while not foundRoot:
+        nextX= (upper - lower)/2. + lower
+        fOfNextX = func(nextX)
+        if func(upper) * fOfNextX < 0:
+            lower = nextX
+        elif func(lower) * fOfNextX  < 0:
+            upper = nextX
+        elif 0. == fOfNextX:
+            return nextX
+
+
+
+        if abs((upper - lower)/(lower + upper)) < relTol:
+            #print "diff is 1"
+            foundRoot = True
+            return lower
+        iteration += 1
+        assert iteration < maxIterations
 
 #xs as in multiple values of x "x is one of the exes"
 def linInterp(x, xs, ys):
@@ -41,9 +77,9 @@ def lookupIndexBisect(x, xs):
     upper = len(xs) -1
     lower = 0
 
-    maxIters = upper
+    maxIterations = upper
     foundIndex = False
-    iter = 0
+    iteration = 0
 
     while not foundIndex:
         nextIndex = int((upper - lower)/2) + lower
@@ -59,5 +95,5 @@ def lookupIndexBisect(x, xs):
             #print "diff is 1"
             foundIndex = True
             return lower
-        iter += 1
-        assert iter < maxIters
+        iteration += 1
+        assert iteration < maxIterations

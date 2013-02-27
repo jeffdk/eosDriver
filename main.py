@@ -1,7 +1,7 @@
 from eos import eos
 import numpy
 import matplotlib.pyplot as mpl
-from utils import lookupIndexBisect, linInterp
+from utils import lookupIndexBisect, linInterp, solveRootBisect
 
 shen = eos('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
@@ -14,13 +14,20 @@ ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
 print ls220.query('logpress')
 
 #print ls220.h5file['logrho'][:]
-interpVal = 2.9
+interpVal = 3.1
 i =  lookupIndexBisect(interpVal, ls220.h5file['logrho'][:])
 print  i, ls220.h5file['logrho'][i],  ls220.h5file['logrho'][i + 1]
 
 print i, ls220.h5file['logpress'][10,10,i], ls220.h5file['logpress'][10,10,i+1]
 print linInterp(interpVal,ls220.h5file['logrho'][:],
                 ls220.h5file['logpress'][10,10,:] )
+
+def p(logrho):
+
+    return linInterp(logrho,ls220.h5file['logrho'][:],
+                     ls220.h5file['logpress'][10,10,:]) - 19.3644130691
+
+print solveRootBisect(p, 3.0, 4.0)
 
 exit()
 
