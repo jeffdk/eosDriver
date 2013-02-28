@@ -100,7 +100,7 @@ class eos(object):
         return newDict['ye']
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
-    def query(self, quantity):
+    def query(self, quantities):
         """
         Query's the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
@@ -113,9 +113,9 @@ class eos(object):
             value = self.physicalState[i]
             tableIndexes.append(self.lookupIndex(indVar, value))
 
-        answer = self.interpolateTable(tableIndexes, quantity)
+        answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
-        return answer
+        return answers
 
     # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
     # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
@@ -200,7 +200,7 @@ class eos(object):
     # http://en.wikipedia.org/wiki/Trilinear_interpolation
     # Note: index lookup is separated from interpolation routine
     #       so that different interpolators may be written and plugged in
-    def interpolateTable(self, tableIndex, quantity):
+    def interpolateTable(self, tableIndex, quantities):
         """
         Given table indexes preceding location of independent variables
         (physical state), does trilinear interpolation of 'quantity' to the
@@ -209,8 +209,12 @@ class eos(object):
         tableIndex = tuple(tableIndex)
         assert all([tableIndex[i] +1 < self.tableShape[i] for i in range(len(tableIndex))]), \
             "Table index + 1  specified to interpolateTable is out of tableShape range!"
-
-        y = self.h5file[quantity]
+        if isinstance(quantities,str):
+            quantities = [quantities]
+        ys = []
+        #todo: maybe implement checking if quantity is logvar
+        for quantity in quantities:
+            ys.append(self.h5file[quantity])
 
         xs = []  # xs is vector x, y, z from wikipedia
         x0 = []  # x0 is vector x0, y0, z0 from wikipedia
@@ -229,22 +233,28 @@ class eos(object):
 
         dxs = (xs - x0) / (x1 - x0)  # dxs is xd, yd, zd from wikipedia
 
-        #matrix is c[i,j] in wikipedia
-        matrix = numpy.zeros([2,2])
-        for i in (0,1):
-            for j in (0,1):
-                lowerInX = (tableIndex[0],tableIndex[1]+i,tableIndex[2]+j)
-                upperInX = (tableIndex[0] +1,tableIndex[1]+i,tableIndex[2]+j)
-                #print lowerInX, upperInX, y[lowerInX], y[upperInX]
-                matrix[i,j] = y[lowerInX] * (1.-dxs[0]) + y[upperInX]* dxs[0]
-        #print matrix
+        answers=[]
+        for y in ys:
+            #matrix is c[i,j] in wikipedia
+            matrix = numpy.zeros([2,2])
+            for i in (0,1):
+                for j in (0,1):
+                    lowerInX = (tableIndex[0],tableIndex[1]+i,tableIndex[2]+j)
+                    upperInX = (tableIndex[0] +1,tableIndex[1]+i,tableIndex[2]+j)
+                    #print lowerInX, upperInX, y[lowerInX], y[upperInX]
+                    matrix[i,j] = y[lowerInX] * (1.-dxs[0]) + y[upperInX]* dxs[0]
+            #print matrix
 
-        vector = numpy.zeros([2])
-        for i in (0,1):
-            vector[i] = matrix[0,i] * (1.-dxs[1]) + matrix[1,i] * dxs[1]
-        #print vector
+            vector = numpy.zeros([2])
+            for i in (0,1):
+                vector[i] = matrix[0,i] * (1.-dxs[1]) + matrix[1,i] * dxs[1]
+            #print vector
+            answers.append(vector[0] * (1. - dxs[2]) + vector[1] * dxs[2])
 
-        return vector[0] * (1. - dxs[2]) + vector[1] * dxs[2]
+        if len(answers) == 1:
+            return answers[0]
+        else:
+            return answers
 
         # print xs
         # print x0
