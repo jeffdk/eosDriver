@@ -4,8 +4,63 @@ Interpolators should take:
  x,  xs,  ys
  Where
 """
+import numpy
 
-def multidimInterp(interpolator, table, point):
+#Ideally, interpolator should be an object that knows its
+# passing interpolation order lets us recursively call
+# multidimInterp without interpolating every point in the table
+def multidimInterp(point, tablePoints, tableData, interpolator,  interpolationOrder=2):
+    assert len(point) == tableData.ndim
+    assert len(tablePoints) == tableData.ndim
+
+    dim = tableData.ndim
+    #
+    offset = int(interpolationOrder / 2) - 1
+    indexesStart = [lookupIndexBisect(point[i], tablePoints[i]) - offset
+                    for i in range(dim)]
+    indexesEnd = [i + interpolationOrder -1 for i in indexesStart]
+
+
+    for i in range(dim):
+        indexesThisAxis = [j for j in range(indexesStart[i], indexesEnd[i] + 1 )]
+        print indexesThisAxis
+        tableData = numpy.take(tableData, indexesThisAxis, axis=i)
+        tablePoints[i] = numpy.take(tablePoints[i], indexesThisAxis)
+
+    answer = multidimInterpWork(point, tablePoints, tableData, interpolator)
+
+
+    return answer
+
+# multidimInterp which handles reduction  of the table to something
+#  which is no larger than needed by the interpolation stencil
+# the real interpolation takes place in the function below
+def multidimInterpWork(point, tablePoints, tableData, interpolator):
+    assert isinstance(tableData, numpy.ndarray), "Input table must be a numpy array"
+    assert len(point) == tableData.ndim, \
+        "Point interpolating to must have same dimension as data table \n " \
+        "PointDim: %s \t tableDataDim: %s " % (len(point),tableData.ndim)
+    print "Point: ", point
+    print "tablePoints: ", tablePoints
+    print "tableData shpe: ", numpy.size(tableData)
+    print "tableData: ", tableData
+    interpolationOrder = numpy.shape(tableData)[0]
+
+    if tableData.ndim == 1:
+        return interpolator(point, tablePoints[0], tableData)
+    else:
+        #print point[1:], tablePoints[1:], tableData[1:]
+        npoints = numpy.size(tableData[1:])
+        reducedTableData = numpy.zeros(npoints)
+        #thisPoint = []
+        for j in range(npoints):
+            thisPoint = []
+            for i in range(interpolationOrder):
+                thisPoint.append(tableData[i, ...].flatten()[j] )
+            reducedTableData[j] = interpolator(point[0],tablePoints[0],thisPoint)
+        reducedTableData = reducedTableData.reshape(numpy.shape(tableData[1, ...]))
+        return multidimInterpWork(point[1:], tablePoints[1:], reducedTableData, interpolator )
+
     pass
 
 def solveRootBisect(func, x0, x1, relTol=1.0e-8, maxIterations=40):
