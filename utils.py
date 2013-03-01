@@ -6,6 +6,14 @@ Interpolators should take:
 """
 import numpy
 
+def relativeError(a,b):
+    """
+    Calculates relative error between a and b as shown.
+    Result is always positive.
+    """
+    assert not a == b == 0.0, "Relative error between 0 and 0 is undefined!"
+    return abs( (a - b) / (abs(a)+abs(b)) )
+
 #Ideally, interpolator should be an object that knows its
 # passing interpolation order lets us recursively call
 # multidimInterp without interpolating every point in the table

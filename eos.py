@@ -10,7 +10,7 @@ Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 import h5py
 import math
 import numpy
-from utils import multidimInterp, linInterp, solveRootBisect, BracketingError
+from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
 
 
 class eos(object):
@@ -90,22 +90,25 @@ class eos(object):
         solveVarName = 'logtemp'
         currentSolveVar =  0.0
         currentYe = 0.25
-
+        #previous variables used to measure convergence of solve
+        # so set them to something significantly different than starting values
+        previousSolveVar =  100.0
+        previousYe = 100.0
+        yeError = relativeError(currentYe, previousYe)
+        solveVarError = relativeError(currentSolveVar, previousSolveVar)
         otherVarName = pointDict.keys()[0]
         otherVar = pointDict.values()[0]
         if otherVarName in self.logVars:
                 otherVar = math.log10(otherVar)
                 otherVarName = 'log' + otherVarName
 
-
-        print otherVar
-
         maxIters = 5
-        tol = 1e-4
+        tol = 1e-3
 
         iteration = 0
-        while iteration < maxIters:
-
+        while iteration < maxIters and yeError + solveVarError > tol/2.0:
+            previousSolveVar = currentSolveVar
+            previousYe = currentYe
             getSolveVar = lambda x: multidimInterp((currentYe, x, otherVar),
                                                    [self.h5file['ye'][:],
                                                     self.h5file[solveVarName],
@@ -131,9 +134,13 @@ class eos(object):
                 print "Root for ye not bracketed on entire table!" + str(err)
                 currentYe =  self.h5file['ye'][0]
                 print "\n recovering by selecting min bound for answer: %s" % currentYe
-            print currentYe
+            #print "currentYe: ", currentYe, "\tcurrentT: ", currentSolveVar
 
+            yeError = relativeError(currentYe, previousYe)
+            solveVarError = relativeError(currentSolveVar, previousSolveVar)
             iteration += 1
+            #print "errs: ", yeError, solveVarError
+
         newDict = pointDict.copy()
         newDict['ye'] = currentYe
         newDict['temp'] = numpy.power(10.0,currentSolveVar)  # TODO TEMP HARD CODE
@@ -170,7 +177,7 @@ class eos(object):
         return newDict['ye']
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
-    def query(self, quantities):
+    def query(self, quantities, deLog10Result=False):
         """
         Query's the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
@@ -185,6 +192,8 @@ class eos(object):
 
         answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
+        if deLog10Result:
+            answers = numpy.power(10.0,answers)
         return answers
 
     # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
@@ -232,7 +241,8 @@ class eos(object):
             print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
                   "RETURNING closestYeToZero INSTEAD"
             for entry in debugList:
-                print entry
+                #print entry
+                pass
             return closestYeToZero
         index = i - 1
         deltaMunu = -previousMunu / (currentMunu - previousMunu)
