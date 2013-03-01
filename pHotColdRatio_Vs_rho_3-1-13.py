@@ -39,7 +39,7 @@ logtemp = numpy.log10(30.)
 ye = 0.15
 tcold = 0.5
 
-logrhos = numpy.arange(13.0,15.5,0.05)
+logrhos = numpy.arange(13.0,15.5,0.1)
 rhos = numpy.power(10.0,logrhos)
 #print logrhos
 
@@ -50,11 +50,12 @@ yeindex = lookupIndexBisect(ye,  theEos.h5file['ye'][:])
 
 scheck=[]
 rollTs =[]
-esses=[1.0,2.0]
+esses=[1.0,2.0,3.0]
+escolors=['r','g','b']
 proll = []
 prollBeta = []
 legends = []
-for s in esses:
+for i, s in enumerate(esses):
     ts=[]
     tsBeta=[]
     lps =[]
@@ -87,19 +88,20 @@ for s in esses:
     legends.append("s = " + str(s) + "  ye = " + str(ye))
     print ts
     print logrhos
-    mpl.plot(logrhos,lps)
+    mpl.plot(logrhos,lps, c=escolors[i])
     legends.append("s = " + str(s) + "  BetaEq")
-    mpl.plot(logrhos, lpsBeta, ls='-.')
+    #legends.append(None)
+    mpl.plot(logrhos, lpsBeta, ls='-.', c=escolors[i])
 #print scheck
 #print rollT
 legends.append("IsoT + roll  ye = " + str(ye))
 legends.append("IsoT + roll  ye = BetaEq")
-mpl.plot(logrhos,proll,ls='--')
-mpl.plot(logrhos,prollBeta,ls=':')
+mpl.plot(logrhos,proll, ls='-', c='m')
+mpl.plot(logrhos,prollBeta,ls='-.',c='m')
 lg = mpl.legend(legends, loc=1)
 lg.draw_frame(False)
 mpl.xlabel(r"$Log10(\rho_b$ CGS)")
-mpl.ylabel(r"$P^{hot}/P^{cold = 0.5MeV}$")
+mpl.ylabel(r"$P^{hot}/P^{cold}_{T=0.5MeV}$")
 #mpl.title("LS220")
 mpl.show()
 

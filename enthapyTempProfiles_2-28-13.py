@@ -11,16 +11,16 @@ shen = eos('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5
 
 theEos = ls220
 
-theEos.setState({'rho': 1.0e15, 'ye': 0.15, 'temp': 30.0})
+theEos.setState({'rho': 1.0e14, 'ye': 0.15, 'temp': 30.0})
 canonicalEntropy = theEos.query('entropy')
 print canonicalEntropy
-print theEos.setBetaEqState({'rho': 1.0e15,  'temp': 30.0})
+print theEos.setBetaEqState({'rho': 1.0e14,  'temp': 30.0})
 canonicalEntropy = theEos.query('entropy')
 print canonicalEntropy
 canonicalEntropy = 0.9
 fixedYe = 0.15
 
-
+exit()
 print
 print "---------------"
 print
