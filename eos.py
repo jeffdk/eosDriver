@@ -77,7 +77,9 @@ class eos(object):
     def setConstQuantityAndBetaEqState(self, pointDict, quantity, target):
         """
         Does inefficient 2D root solve to set state at neutrino-less
-        beta equilibrium and quantity = target.
+        beta equilibrium and quantity = target. Sets the physicalState
+         and then returns ye, temp
+        Modifies self.physicalState
         """
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
