@@ -18,7 +18,7 @@ print
 print "---------------"
 print
 
-shen.setConstQuantityAndBetaEqState({'rho': 1e14}, 'entropy', 1.0)
+ls220.setConstQuantityAndBetaEqState({'rho': 1e14}, 'entropy', 1.0)
 
 exit()
 

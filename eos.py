@@ -10,7 +10,7 @@ Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 import h5py
 import math
 import numpy
-from utils import multidimInterp, linInterp, solveRootBisect
+from utils import multidimInterp, linInterp, solveRootBisect, BracketingError
 
 
 class eos(object):
@@ -101,6 +101,7 @@ class eos(object):
         print otherVar
 
         maxIters = 5
+        tol = 1e-4
 
         iteration = 0
         while iteration < maxIters:
@@ -113,7 +114,7 @@ class eos(object):
                                                    linInterp, 2) - target
             currentSolveVar = solveRootBisect(getSolveVar,
                                               self.h5file[solveVarName][0],
-                                              self.h5file[solveVarName][-1], 1e-5)
+                                              self.h5file[solveVarName][-1],tol)
 
             getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
                                              [self.h5file['ye'][:],
@@ -121,13 +122,15 @@ class eos(object):
                                              self.h5file[otherVarName]],
                                              self.h5file['munu'][...],
                                              linInterp, 2)
-            print currentSolveVar
-            for i in self.h5file['ye'][:]:
-                #print getYe(i)
-                pass
-            currentYe = solveRootBisect(getYe,
-                                        self.h5file['ye'][0],
-                                        self.h5file['ye'][-1], 1e-5)
+            #check for bracketing error in root solve for ye
+            try:
+                currentYe = solveRootBisect(getYe,
+                                            self.h5file['ye'][0],
+                                            self.h5file['ye'][-1], tol)
+            except BracketingError as err:
+                print "Root for ye not bracketed on entire table!" + str(err)
+                currentYe =  self.h5file['ye'][0]
+                print "\n recovering by selecting min bound for answer: %s" % currentYe
             print currentYe
 
             iteration += 1
