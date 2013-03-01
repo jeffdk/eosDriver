@@ -3,7 +3,7 @@ import plot_defaults
 from eos import eos
 import numpy
 import matplotlib.pyplot as plt
-from utils import lookupIndexBisect, linInterp, solveRootBisect
+from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
 import matplotlib.pyplot as mpl
 
 ls220 = eos('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
@@ -28,8 +28,10 @@ getLogRhoIndex = lambda lr: lookupIndexBisect(lr, ls220.h5file['logrho'][:])
 def entropyOfT(logtemp, logrho, target):
 
     lrindex = getLogRhoIndex(logrho)
-    return linInterp(logtemp,ls220.h5file['logtemp'][:],
-                     ls220.h5file['entropy'][11, :, lrindex]) - target
+    return multidimInterp((logtemp, logrho), [ls220.h5file['logtemp'][:],
+                                              ls220.h5file['logrho'][:]],
+                          ls220.h5file['entropy'][11, :, :],
+                          linInterp, 2) - target
 
 
 logtemp = numpy.log10(30.)

@@ -10,6 +10,7 @@ Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 import h5py
 import math
 import numpy
+from utils import multidimInterp, linInterp, solveRootBisect
 
 
 class eos(object):
@@ -70,6 +71,70 @@ class eos(object):
         Modifies self.physicalState
         """
         self.physicalState = (None for unused in self.indVars)
+
+
+    #todo: RIGHT NOW HARD CODED TO BE GIVEN RHO AND FIND T!! FIX
+    def setConstQuantityAndBetaEqState(self, pointDict, quantity, target):
+        """
+        Does inefficient 2D root solve to set state at neutrino-less
+        beta equilibrium and quantity = target.
+        """
+        assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
+                                      "setting neutrinoless beta equlibrium!"
+        assert all([key in self.indVars for key in pointDict.keys()])
+        assert len(pointDict) < 2, "State overdetermined for more than 2 indVars!"
+        #todo: check quantity is valid 3D table
+
+        solveVarName = 'logtemp'
+        currentSolveVar =  0.0
+        currentYe = 0.25
+
+        otherVarName = pointDict.keys()[0]
+        otherVar = pointDict.values()[0]
+        if otherVarName in self.logVars:
+                otherVar = math.log10(otherVar)
+                otherVarName = 'log' + otherVarName
+
+
+        print otherVar
+
+        maxIters = 5
+
+        iteration = 0
+        while iteration < maxIters:
+
+            getSolveVar = lambda x: multidimInterp((currentYe, x, otherVar),
+                                                   [self.h5file['ye'][:],
+                                                    self.h5file[solveVarName],
+                                                    self.h5file[otherVarName]],
+                                                   self.h5file[quantity][...],
+                                                   linInterp, 2) - target
+            currentSolveVar = solveRootBisect(getSolveVar,
+                                              self.h5file[solveVarName][0],
+                                              self.h5file[solveVarName][-1], 1e-5)
+
+            getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
+                                             [self.h5file['ye'][:],
+                                             self.h5file[solveVarName],
+                                             self.h5file[otherVarName]],
+                                             self.h5file['munu'][...],
+                                             linInterp, 2)
+            print currentSolveVar
+            for i in self.h5file['ye'][:]:
+                #print getYe(i)
+                pass
+            currentYe = solveRootBisect(getYe,
+                                        self.h5file['ye'][0],
+                                        self.h5file['ye'][-1], 1e-5)
+            print currentYe
+
+            iteration += 1
+        newDict = pointDict.copy()
+        newDict['ye'] = currentYe
+        newDict['temp'] = numpy.power(10.0,currentSolveVar)  # TODO TEMP HARD CODE
+        self.setState(newDict)
+        return currentYe, newDict['temp'] # TODO TEMP HARD CODE
+
 
     def setBetaEqState(self, pointDict):
         """

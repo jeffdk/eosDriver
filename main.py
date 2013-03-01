@@ -14,26 +14,11 @@ ls220.lookupIndex('rho',10000.0)
 ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
 print ls220.query(['logpress','entropy','logenergy'])
 
-#print ls220.h5file['logtemp'][:]
-interpVal = 3.1
-i =  lookupIndexBisect(interpVal, ls220.h5file['logrho'][:])
-print  i, ls220.h5file['logrho'][i],  ls220.h5file['logrho'][i + 1]
-
-print i, ls220.h5file['logpress'][10,10,i], ls220.h5file['logpress'][10,10,i+1]
-print linInterp(interpVal,ls220.h5file['logrho'][:],
-                ls220.h5file['logpress'][10,10,:] )
-
 print
 print "---------------"
 print
-val = multidimInterp((0.25, 0.0, 10.0), [ls220.h5file['ye'][:],
-                           ls220.h5file['logtemp'][:],
-                           ls220.h5file['logrho'][:]],
-               ls220.h5file['logpress'][:],
-               linInterp, 2)
-print val
-ls220.setState({'rho': 1.0e10, 'ye': .25, 'temp': 1.0})
-print ls220.query('logpress')
+
+shen.setConstQuantityAndBetaEqState({'rho': 1e14}, 'entropy', 1.0)
 
 exit()
 
@@ -41,7 +26,7 @@ def func(rho):
 
     global ls220
     global shen
-    global ye
+    #global ye
     global temp
     theDict = {'rho': rho, 'ye': ye, 'temp': temp}
     if ye > 0:
@@ -73,7 +58,7 @@ mpl.plot(xs,yshot/yscold)
 yes = [0.05, 0.1, 0.2, 0.3]
 
 for thisYe in yes:
-    global ye
+    #global ye
     ye = thisYe
     temp = 0.5
     yscold = numpy.power(10.0, vfunc(rhos))

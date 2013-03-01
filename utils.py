@@ -23,7 +23,7 @@ def multidimInterp(point, tablePoints, tableData, interpolator,  interpolationOr
 
     for i in range(dim):
         indexesThisAxis = [j for j in range(indexesStart[i], indexesEnd[i] + 1 )]
-        print indexesThisAxis
+        #print indexesThisAxis
         tableData = numpy.take(tableData, indexesThisAxis, axis=i)
         tablePoints[i] = numpy.take(tablePoints[i], indexesThisAxis)
 
@@ -40,14 +40,14 @@ def multidimInterpWork(point, tablePoints, tableData, interpolator):
     assert len(point) == tableData.ndim, \
         "Point interpolating to must have same dimension as data table \n " \
         "PointDim: %s \t tableDataDim: %s " % (len(point),tableData.ndim)
-    print "Point: ", point
-    print "tablePoints: ", tablePoints
-    print "tableData shpe: ", numpy.size(tableData)
-    print "tableData: ", tableData
+    # print "Point: ", point
+    # print "tablePoints: ", tablePoints
+    # print "tableData shpe: ", numpy.size(tableData)
+    # print "tableData: ", tableData
     interpolationOrder = numpy.shape(tableData)[0]
 
     if tableData.ndim == 1:
-        return interpolator(point, tablePoints[0], tableData)
+        return interpolator(point, tablePoints[0], tableData)[0]
     else:
         #print point[1:], tablePoints[1:], tableData[1:]
         npoints = numpy.size(tableData[1:])
