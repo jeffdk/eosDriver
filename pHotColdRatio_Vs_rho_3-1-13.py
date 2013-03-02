@@ -1,4 +1,4 @@
-
+import datetime
 import plot_defaults
 from eos import eos
 import numpy
@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
 import matplotlib.pyplot as mpl
 
+startTime = datetime.datetime.now()
 ls220 = eos('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 shen = eos('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-theEos = shen
+theEos = ls220
 
 theEos.setState({'rho': 1.0e15, 'ye': 0.15, 'temp': 30.0})
 canonicalEntropy = theEos.query('entropy')
@@ -103,9 +104,6 @@ lg.draw_frame(False)
 mpl.xlabel(r"$Log10(\rho_b$ CGS)")
 mpl.ylabel(r"$P^{hot}/P^{cold}_{T=0.5MeV}$")
 #mpl.title("LS220")
+
+print "TIME DIFFERENCE: ", datetime.datetime.now() - startTime
 mpl.show()
-
-
-
-
-print canonicalEntropy

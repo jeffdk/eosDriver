@@ -11,7 +11,7 @@ import h5py
 import math
 import numpy
 from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
-
+import scipy
 
 class eos(object):
 
@@ -87,6 +87,9 @@ class eos(object):
         assert len(pointDict) < 2, "State overdetermined for more than 2 indVars!"
         #todo: check quantity is valid 3D table
 
+        #defines 1D root solver to use in routine
+        solveRoot = scipy.optimize.brentq  # solveRootBisect
+
         solveVarName = 'logtemp'
         currentSolveVar =  0.0
         currentYe = 0.25
@@ -115,25 +118,30 @@ class eos(object):
                                                     self.h5file[otherVarName]],
                                                    self.h5file[quantity][...],
                                                    linInterp, 2) - target
-            currentSolveVar = solveRootBisect(getSolveVar,
-                                              self.h5file[solveVarName][0],
-                                              self.h5file[solveVarName][-1],tol)
+            currentSolveVar = solveRoot(getSolveVar,
+                                        self.h5file[solveVarName][0],
+                                        self.h5file[solveVarName][-1],(),tol)
 
             getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
-                                             [self.h5file['ye'][:],
-                                             self.h5file[solveVarName],
-                                             self.h5file[otherVarName]],
-                                             self.h5file['munu'][...],
-                                             linInterp, 2)
+                                              [self.h5file['ye'][:],
+                                               self.h5file[solveVarName],
+                                               self.h5file[otherVarName]],
+                                              self.h5file['munu'][...],
+                                              linInterp, 2)
             #check for bracketing error in root solve for ye
             try:
-                currentYe = solveRootBisect(getYe,
-                                            self.h5file['ye'][0],
-                                            self.h5file['ye'][-1], tol)
+                currentYe = solveRoot(getYe,
+                                      self.h5file['ye'][0],
+                                      self.h5file['ye'][-1], (), tol)
             except BracketingError as err:
                 print "Root for ye not bracketed on entire table!" + str(err)
                 currentYe =  self.h5file['ye'][0]
                 print "\n recovering by selecting min bound for answer: %s" % currentYe
+            #ValueError is thrown by scipy's brentq
+            except ValueError as err:
+                print "Error in scipy root solver solving for ye: ", str(err)
+                currentYe =  self.h5file['ye'][0]
+                print "Recovering by selecting min bound for answer: %s" % currentYe
             #print "currentYe: ", currentYe, "\tcurrentT: ", currentSolveVar
 
             yeError = relativeError(currentYe, previousYe)
@@ -177,7 +185,7 @@ class eos(object):
         return newDict['ye']
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
-    def query(self, quantities, deLog10Result=False):
+    def query(self, quantities, deLog10Result=True):
         """
         Query's the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
