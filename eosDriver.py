@@ -185,7 +185,7 @@ class eosDriver(object):
         return newDict['ye']
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
-    def query(self, quantities, deLog10Result=True):
+    def query(self, quantities, deLog10Result=False):
         """
         Query's the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
