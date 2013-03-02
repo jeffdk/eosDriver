@@ -1,12 +1,12 @@
-from eos import eos
+from eosDriver import eosDriver
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
 import plot_defaults
 
-shen = eos('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
+shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-ls220 = eos('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
+ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
 #print ls220.lookupIndex('rho',1e4)
 #ls220.lookupIndex('temp',10.0)

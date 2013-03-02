@@ -13,7 +13,7 @@ import numpy
 from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
 import scipy
 
-class eos(object):
+class eosDriver(object):
 
     valuesDict = None
     # Independent variables; assumes these are the independent variables in the
@@ -34,7 +34,7 @@ class eos(object):
 
     def __init__(self, tableFilename):
         """
-        eos class constructor takes a h5 file filename for a
+        eosDriver class constructor takes a h5 file filename for a
         stellarcollapse.org EOS file
         """
         self.h5file = h5py.File(tableFilename, 'r')

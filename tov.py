@@ -3,7 +3,6 @@
 import sys
 from units import *
 from scipy import *
-from pylab import *
 
 
 # global constants
