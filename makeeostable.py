@@ -1,12 +1,11 @@
-import sys
-from units import *
-from scipy import *
-from eosDriver import eosDriver
-from utils import lookupIndexBisect, linInterp, solveRootBisect
 
-myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
+from units import *
+from numpy import linspace, zeros, log10
+from eosDriver import eosDriver
+
 
 def makeeostable(nrhos,rhomin,rhomax,myeos,mytype):
+    assert isinstance(myeos, eosDriver)
 
     logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
     eostable = zeros((nrhos,2))
@@ -20,15 +19,15 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype):
         energy_shift = myeos.h5file['energy_shift'][0]
         
         for i in range(nrhos):
-            myeos.setState({'rho': 10.0**logrhos[i],\
-                                'ye': ye,\
-                                'temp': temp})
+            myeos.setState({'rho': 10.0**logrhos[i],
+                            'ye': ye,
+                            'temp': temp})
             
             press = myeos.query('logpress')
 
-            myeos.setState({'rho': 10.0**logrhos[i],\
-                                'ye': ye,\
-                                'temp': temp})
+            myeos.setState({'rho': 10.0**logrhos[i],
+                            'ye': ye,
+                            'temp': temp})
 
             eps = myeos.query('logenergy')
             

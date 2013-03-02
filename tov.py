@@ -2,7 +2,7 @@
 
 import sys
 from units import *
-from scipy import *
+from numpy import linspace, zeros, log10, pi, sqrt
 from eosDriver import eosDriver
 import makeeostable
 
@@ -61,7 +61,7 @@ def get_rho_eps(press,rho_old,tovinfo):
         rho = (press / polyK)**(1.0/polyG)
         eps = press / (polyG - 1.0) / rho
     else:
-        # tabulated EOS 
+        # tabulated EOS
         rho_guess = rho_old
         cont = True
         counter = 0
@@ -82,7 +82,7 @@ def get_rho_eps(press,rho_old,tovinfo):
                     rho_guess = 0.99*rho_guess
                 else:
                     rho_guess = rho_guess + fac*(press-xprs)/mydpdrho
-            
+
             if (counter > 100):
                 fac = 0.01
 
@@ -96,9 +96,9 @@ def get_rho_eps(press,rho_old,tovinfo):
             if (counter > 10000):
                 print "error in rho(press) iteration"
                 sys.exit()
-            
+
     return (rho,eps)
-        
+
 
 
 def set_grid(rmax,nzones):
@@ -120,8 +120,8 @@ def tov_RHS(r,data,tovinfo,rho_old):
 
     if(r < 1.0e-5 and mass < 1.0e-5*msun):
         rhs[0] = 0.0
-#        rhs[1] = 4.0*pi*r**2 * u 
-#        rhs[2] = 4.0*pi*r**2 * rho 
+#        rhs[1] = 4.0*pi*r**2 * u
+#        rhs[2] = 4.0*pi*r**2 * rho
         rhs[1] = 0.0
         rhs[2] = 0.0
         rhs[3] = 0.0
@@ -140,7 +140,7 @@ def tov_RHS(r,data,tovinfo,rho_old):
             rhs[0] = 0.0
 
         # gravitational mass
-        rhs[1] = 4.0*pi*r**2 * u 
+        rhs[1] = 4.0*pi*r**2 * u
 
         # baryonic mass
         rhs[2] = 4.0*pi*r**2 * rho * \
@@ -311,58 +311,7 @@ def tov_sequence(rho1,rho2,nsteps,tovinfo):
 
 myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
-#### xrho = 10.0**15.6094
-#### xtemp = 0.5
-#### xye = 0.161122
-#### logtemp = 1.16148
-#### 
-#### myeos.setState({'rho': xrho, 'ye': xye, 'temp': xtemp})
-#### print 10.0**myeos.query('logpress')*press_gf
-#### 
-#### tovinfo = tovinfoclass()
-#### tovinfo.polyK = 123.0
-#### tovinfo.polyG = 2.0
-#### tovinfo.nzones = 20000
-#### tovinfo.rmax = 100.0
-#### tovinfo.eostype = 3
-#### 
-#### mytype = "fixed_ye_temp"
-#### print "Preparing EOS table: ",mytype
-#### rhomin = 1.0e5
-#### rhomax = 8.0e15
-#### tovinfo.eoslrhomin = log10(rhomin*rho_gf)
-#### tovinfo.eoslrhomax = log10(rhomax*rho_gf)
-#### (tovinfo.eostable,tovinfo.eosepsshift,dlrho,tovinfo.logrhos) \
-####     = makeeostable.makeeostable(\
-####     tovinfo.nrhos,rhomin,rhomax,myeos,mytype)
-#### 
-#### tovinfo.eosdlrho = dlrho
-#### tovinfo.eosdlrhoi = 1.0/dlrho
-#### (tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin*0.999,tovinfo)
-#### 
-#### print tabeos_press_eps(rho_gf*xrho,tovinfo)
 
-
-#226
-#97
-#12
-
-#sys.exit()
-
-### tovinfo = tovinfoclass()
-### tovinfo.polyK = 123.0
-### tovinfo.polyG = 2.0
-### tovinfo.nzones = 10000
-### tovinfo.rmax = 30.0
-### tovinfo.eostype = 1
-### tovinfo.minpress = 1.0e-20
-### 
-### rho_c = 2.0e-3
-### 
-### (tovout,isurf,rad,dr) = tov_integrate(rho_c,tovinfo)
-### print tovout[isurf,3], tovout[isurf,4]
-### 
-### sys.exit()
 
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
@@ -399,102 +348,9 @@ for i in range(len(outdata[:,0])):
     outfile.write(line)
 outfile.close()
 
-### outfile=open("blaheos.dat","w")
-### for i in range(len(tovinfo.eostable[:,0])):
-###     line = "%15.6E %15.6E\n" % (tovinfo.logrhos[i],tovinfo.eostable[i,0])
-###     outfile.write(line)
-### 
-### outfile.close()
-### 
-### outfile=open("blahout.dat","w")
-### for i in range(isurf):
-###     line = "%15.6E %15.6E\n" % (rad[i],tovout[i,0])
-###     outfile.write(line)
-### outfile.close()
-### 
-### rho_c = 8.179838E-04
-### (tovout,isurf,rad,dr) = tov_integrate(rho_c,tovinfo)
-### print tovout[isurf,3], tovout[isurf,4], rad[isurf]
-### 
-### outfile=open("blahout2.dat","w")
-### for i in range(isurf):
-###     line = "%15.6E %15.6E\n" % (rad[i],tovout[i,0])
-###     outfile.write(line)
-### outfile.close()
-
-
-sys.exit()
-
-tovinfo = tovinfoclass()
-tovinfo.polyK = 0.0
-tovinfo.polyG = 2.0
-tovinfo.nzones = 10000
-tovinfo.rmax = 100.0
-tovinfo.eostype = 3
-
-
-mytype = "fixed_ye_temp"
-print "Preparing EOS table: ",mytype
-rhomin = 1.0e5
-rhomax = 8.0e15
-tovinfo.eoslrhomin = log10(rhomin*rho_gf)
-tovinfo.eoslrhomax = log10(rhomax*rho_gf)
-(tovinfo.eostable,tovinfo.eosepsshift,dlrho,tovinfo.logrhos) \
-    = makeeostable.makeeostable(\
-    tovinfo.nrhos,rhomin,rhomax,myeos,mytype)
-
-tovinfo.eosdlrho = dlrho
-tovinfo.eosdlrhoi = 1.0/dlrho
-(tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin*0.999,tovinfo)
-
-tabeos_press_eps(1.0e-3,tovinfo)
-
-#rho_c = 8.0e14*rho_gf
-#(tovout,isurf,rad,dr) = tov_integrate(rho_c,tovinfo)
-#print tovout[isurf,3], tovout[isurf,4]
-ggrav = 1.0
-clite = 1.0
-msun = 1.0
-
-outdata = tov_sequence(3.0e14,6.0e14,10,tovinfo)
-    
-#for i in range(len(outdata[:,0])):
-#    print "%4d %15.6E %15.6E %15.6E %15.6E" % \
-#        (i,outdata[i,0],outdata[i,1],outdata[i,2],outdata[i,3])
-
 imax = outdata[:,2].argmax() 
 print "Maximum mass: M_grav = %15.6E   M_bary = %15.6E " % \
     (outdata[imax,1],outdata[imax,2])
 print "Radius at maximum mass: r_max = %15.6E cm" % (outdata[imax,3]*inv_length_gf)
 print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
-
-
-sys.exit()
-
-# grid
-rmax = 20.0
-nzones = 20000
-
-# EOS
-polyG = 2.00
-polyK = 123.0
-
-rho_c = 8.0e14*rho_gf
-
-#(tovout,isurf,rad,dr) = tov_integrate(rho_c,rmax,nzones,polyG,polyK)
-#print tovout[isurf,3], tovout[isurf,4]
-
-
-
-
-
-
-
-
-#plot(rad,exp(tov_star[:,5])/sqrt(tov_star[:,9]),label="lapse")
-#legend()
-#show()
-
-#plot(rad,tov_star[:,8],label="scalar field")
-#legend()
-#show()
+print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
