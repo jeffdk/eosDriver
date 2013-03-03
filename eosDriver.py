@@ -10,8 +10,10 @@ Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 import h5py
 import math
 import numpy
+import consts
 from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
 import scipy
+
 
 class eosDriver(object):
 
@@ -32,6 +34,10 @@ class eosDriver(object):
     #dependent variables table shape; set as shape of 'logpress'
     tableShape = None
 
+    #energy shift is constant value added to all values of 'energy' in the table
+    #so that 'logenergy' is always positive
+    energy_shift = None
+
     def __init__(self, tableFilename):
         """
         eosDriver class constructor takes a h5 file filename for a
@@ -39,6 +45,8 @@ class eosDriver(object):
         """
         self.h5file = h5py.File(tableFilename, 'r')
         self.tableShape = numpy.shape(self.h5file['logpress'])
+        self.energy_shift = self.h5file['energy_shift'][0]
+        print self.energy_shift
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
@@ -50,6 +58,88 @@ class eosDriver(object):
                     newOrdering[ithAxis] = indVar
                     break
         self.indVars = tuple(newOrdering)
+
+    def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
+        """
+        Two temperature prescriptions available:
+        1) Fix a quantity
+         {'quantity':  a dependent variable in the EOS table,
+          'target':    the target value you wish to fix 'quantity to'}
+          E.g.: {'quantity': 'entropy', 'target': 1.0}
+
+        2) Isothermal with a temperature roll-off in log10(rho_b CGS) space
+         {'T': Isothermal temperature (MeV) at high densities (eosTmax),
+          'rollMid': Midpoint of roll-off in log10( rho_b CGS) space,
+          'rollScale': e-folding falloff of T to min value log10(rho_b CGS),
+          'eosTmin': minimum temperature (MeV) in roll-off prescription }
+          E.g: {'T': 30.0, 'rollMid': 14.0, 'rollScale': 0.5, 'eosTmin': 0.5}
+
+        Please only set one or the other of these; doing otherwise may result
+        in UNDEFINED BEHAVIOR
+
+        Not setting ye will give results for neutrinoless beta equilibrium.
+        NOT IMPLEMENTED YET
+        """
+        assert ye is not None, "Must set ye! BetaEq not implemented yet"
+        isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
+        fixedQuantityKeys = ('quantity', 'target')
+        assert isinstance(tempPrescription, dict)
+        isothermalPrescription = all([key in tempPrescription.keys()
+                                      for key in isothermalKeys])
+        fixedQuantityPrescription = all([key in tempPrescription.keys()
+                                         for key in fixedQuantityKeys])
+        assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
+
+        tempOfLog10Rhob = None
+
+        if isothermalPrescription:
+            print "Using isothermal prescription in writeRotNSeosfile"
+            Tmax = tempPrescription['T']
+            Tmin = tempPrescription['eosTmin']
+            mid = tempPrescription['rollMid']
+            scale = tempPrescription['rollScale']
+            tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
+                                         * (numpy.tanh((lr - mid)/scale) + 1.0)
+        if fixedQuantityPrescription:
+            assert False, "fixedQuantityPrescription not implemented yet!"
+
+
+        log10numberdensityMin = 2.67801536139756E+01
+        log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
+
+        npoints = 600
+
+        dlogn = (log10numberdensityMax - log10numberdensityMin) / (npoints - 1.0)
+
+        logns = numpy.linspace(log10numberdensityMin, log10numberdensityMax, npoints)
+
+        outfile = open(filename, 'w')
+
+        for logn in logns:
+            numberdensityCGS = numpy.power(10.0, logn)
+            rho_b_CGS = numberdensityCGS * consts.CGS_AMU
+            logrho_b_CGS = numpy.log10(rho_b_CGS)
+            temp = tempOfLog10Rhob(logrho_b_CGS)
+            #print logrho_b_CGS, temp, (numpy.tanh((logrho_b_CGS - mid)/scale) + 1.0)
+            #print 'rho ', rho_b_CGS, ' temp ', temp, ' ye ', ye
+            self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
+
+            logpress, logeps = self.query(['logpress', 'logenergy'])
+
+            #Total energy density (1.0 + eps) is in AGEO units
+
+            eps = (numpy.power(10.0, logeps) - self.energy_shift)\
+                  * consts.AGEO_ERG / consts.AGEO_GRAM
+
+            totalEnergyDensity = rho_b_CGS * (1.0 + eps)
+            logTotalEnergyDensity = numpy.log10(totalEnergyDensity)
+            print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
+            #print logrho_b_CGS, eps, logpress
+            outfile.write(" {:24.14e} {:24.14e} {:24.14e}\n".format(logn,
+                                                                     logTotalEnergyDensity,
+                                                                     logpress))
+
+
 
     def setState(self, pointDict):
         """
