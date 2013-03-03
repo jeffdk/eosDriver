@@ -4,7 +4,7 @@ from numpy import linspace, zeros, log10
 from eosDriver import eosDriver
 
 
-def makeeostable(nrhos,rhomin,rhomax,myeos,mytype):
+def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
     assert isinstance(myeos, eosDriver)
 
     logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
@@ -13,8 +13,8 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype):
 
     if(mytype == 'fixed_ye_temp'):
 
-        ye = 0.15
-        temp = 0.5
+        ye = par2
+        temp = par1
         
         energy_shift = myeos.h5file['energy_shift'][0]
         
