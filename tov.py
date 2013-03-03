@@ -327,8 +327,8 @@ yes = [0.1,0.15,0.2,0.25,0.3]
 for ii in range(len(temps)):
     for jj in range(len(yes)):
         mytype = "fixed_ye_temp"
-        par1 = 0.5
-        par2 = 0.15
+        par1 = temps[ii]
+        par2 = yes[jj]
         print "T = %5.2f, Y_e = %5.2f" % (par1,par2)
         print "Preparing EOS table: ",mytype
         rhomin = 1.0e7
