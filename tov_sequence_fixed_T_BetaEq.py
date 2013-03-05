@@ -15,11 +15,19 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 200000
-tovinfo.rmax = 500.0
+tovinfo.nzones = 40000
+tovinfo.rmax = 50.0
 tovinfo.eostype = 3
 
 temps = [0.5,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0,50.0]
+
+tmin = 0.5
+tmax = 50.0
+dtemp = 0.5
+ntemp = int((tmax-tmin)/dtemp)+1
+temps = zeros(ntemp)
+for i in range(ntemp):
+	temps[i] = 0.5 + dtemp*i
 
 for ii in range(len(temps)):
         mytype = "fixed_temp_betaeq"
@@ -47,7 +55,7 @@ for ii in range(len(temps)):
         tovinfo.eosdlrhoi = 1.0/dlrho
         (tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin,tovinfo)
 
-        outdata = tov_sequence(3.0e14,7.0e15,50,tovinfo)
+        outdata = tov_sequence(4.0e14,7.0e15,50,tovinfo)
     
         filename = mytype+"_T%06.3f_BetaEq.dat" % (par1)
         outfile=open(filename,"w")
