@@ -6,7 +6,7 @@
 
 Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 """
-
+import sys
 import h5py
 import math
 import numpy
@@ -305,12 +305,55 @@ class eosDriver(object):
         """
         munu = self.h5file['munu']
         ye = self.h5file['ye']
+        
+        logrhos = self.h5file['logrho']
 
         previousPoint = tuple( 0 if val is None else val for val in tableIndex )
         currentMunu = previousMunu = munu[previousPoint]
         gotZero = False
         closestYeToZero = ye[0]
         debugList = []
+
+        # simple point to find Y_e based on where munu is closest to zero
+        # no abstraction, just straighforward code
+
+        # okay, tableIndex has (iye,itemp,irho), where the indices are
+        # the indices bordering the current ye,temp,rho from below
+
+        # the easiest thing is now to get munu(rho,T,ye) for all Ye
+        xmunu = numpy.zeros(len(ye))
+        irho = tableIndex[2]
+        itemp = tableIndex[1]
+
+        # apparently, the interpolator can't handle
+        # the case where we want to use the max Y_e in the table
+        for iye in range(0,len(ye)-1):
+            thisPoint = tuple([iye,itemp,irho])
+            self.physicalState = tuple([ye[iye],partialNewState[1],partialNewState[2]])
+            xmunu[iye] = self.interpolateTable(thisPoint, 'munu')
+
+        # now that we have munu, just need to find the point where it
+        # changes sign
+        cont = True
+        iye = 1
+        while iye < len(ye)-2 and cont:
+            if(xmunu[iye]*xmunu[iye-1] < 0):
+                cont = False
+            else:
+                iye = iye+1
+
+        if not cont:
+            deltaMunu = -xmunu[iye-1] / (xmunu[iye] - xmunu[iye-1])
+            xye= ye[iye-1] * (1. - deltaMunu) + ye[iye] * deltaMunu
+            return xye
+        else:
+            xye = closestYeToZero
+            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
+                  "RETURNING closestYeToZero INSTEAD"
+            return xye
+        
+        # below is Jeff's code -- much smarter, but produces strange results
+
         i = 0
         for i in range(len(munu)):
             thisPoint = []
