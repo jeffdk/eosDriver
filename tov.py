@@ -271,6 +271,10 @@ def tov_integrate(rho_c,tovinfo):
         # compute density
         (tovout[i+1,0],tovout[i+1,2]) = \
                get_rho_eps(tovdata[i+1,0],rhos[i],tovinfo)
+
+        if(tovinfo.stopflag):
+            isurf = i+1
+
         # compute eps
         rhos[i+1] = tovout[i+1,0]
 #        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
@@ -278,7 +282,7 @@ def tov_integrate(rho_c,tovinfo):
         
         i+=1
 
-    if isurf == 0:
+    if (isurf == 0):
         print "Could not solve for (entire?) TOV!"
         print "Setting isurf to nzones-1"
         isurf = nzones-1

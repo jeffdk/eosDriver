@@ -49,7 +49,7 @@ for ii in range(len(temps)):
         tovinfo.eosdlrhoi = 1.0/dlrho
         (tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin,tovinfo)
 
-        outdata = tov_sequence(4.0e14,7.0e15,50,tovinfo)
+        outdata = tov_sequence(3.0e14,7.0e15,50,tovinfo)
     
         filename = mytype+"_T%06.3f_Ye%06.3f.dat" % (par1, par2)
         outfile=open(filename,"w")
