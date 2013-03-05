@@ -46,7 +46,7 @@ class eosDriver(object):
         self.h5file = h5py.File(tableFilename, 'r')
         self.tableShape = numpy.shape(self.h5file['logpress'])
         self.energy_shift = self.h5file['energy_shift'][0]
-        print self.energy_shift
+        #print self.energy_shift
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
@@ -133,11 +133,11 @@ class eosDriver(object):
 
             totalEnergyDensity = rho_b_CGS * (1.0 + eps)
             logTotalEnergyDensity = numpy.log10(totalEnergyDensity)
-            print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
+            #print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
             #print logrho_b_CGS, eps, logpress
-            outfile.write(" {:24.14e} {:24.14e} {:24.14e}\n".format(logn,
-                                                                     logTotalEnergyDensity,
-                                                                     logpress))
+            outfile.write("{:24.14e}{:24.14e}{:24.14e}\n".format(logn,
+                                                                 logTotalEnergyDensity,
+                                                                 logpress))
 
 
 
