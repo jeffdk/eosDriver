@@ -7,7 +7,7 @@ from eosDriver import eosDriver
 import makeeostable
 from tov import *
 
-sfile = open("summary_fixed_T_BetaEq.dat","aw") 
+
 
 myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
@@ -15,11 +15,18 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 200000
-tovinfo.rmax = 500.0
+tovinfo.nzones = 80000
+tovinfo.rmax = 100.0
 tovinfo.eostype = 3
 
-temps = [0.5,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0,50.0]
+
+tmin = 0.5
+tmax = 50.0
+dtemp = 0.5
+ntemp = int((tmax-tmin)/dtemp)+1
+temps = zeros(ntemp)
+for i in range(ntemp):
+	temps[i] = 0.5 + dtemp*i
 
 for ii in range(len(temps)):
         mytype = "fixed_temp_betaeq"
@@ -27,7 +34,7 @@ for ii in range(len(temps)):
 	par2 = 0.0
         print "T = %5.2f, betaeq" % (par1)
         print "Preparing EOS table: ",mytype
-        rhomin = 1.0e7
+        rhomin = 1.0e6
         rhomax = 8.0e15
         tovinfo.eoslrhomin = log10(rhomin*rho_gf)
         tovinfo.eoslrhomax = log10(rhomax*rho_gf)
@@ -36,12 +43,12 @@ for ii in range(len(temps)):
             tovinfo.nrhos,rhomin,rhomax,myeos,mytype,par1,par2)
 
 	# DEBUG write eos table
-	eosfile=open("eosout.dat","w")
-	for i in range(len(tovinfo.eostable[:,0])):
-		sline = "%15.6E %15.6E %15.6E\n" % \
-		    (tovinfo.logrhos[i],tovinfo.eostable[i,0],tovinfo.eostable[i,1])
-		eosfile.write(sline)
-	eosfile.close()
+#	eosfile=open("eosout.dat","w")
+#	for i in range(len(tovinfo.eostable[:,0])):
+#		sline = "%15.6E %15.6E %15.6E\n" % \
+#		    (tovinfo.logrhos[i],tovinfo.eostable[i,0],tovinfo.eostable[i,1])
+#		eosfile.write(sline)
+#	eosfile.close()
     
         tovinfo.eosdlrho = dlrho
         tovinfo.eosdlrhoi = 1.0/dlrho
@@ -64,11 +71,10 @@ for ii in range(len(temps)):
         print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
         print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
 
+	sfile = open("summary_fixed_T_BetaEq.dat","aw") 
         outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
             (par1,par2,outdata[imax,1],outdata[imax,2],outdata[imax,0]*inv_rho_gf,\
                  outdata[imax,3]*inv_length_gf)
 
         sfile.write(outstring)
-
-
-sfile.close()
+	sfile.close()

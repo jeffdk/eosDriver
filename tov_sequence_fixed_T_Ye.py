@@ -7,7 +7,7 @@ from eosDriver import eosDriver
 import makeeostable
 from tov import *
 
-sfile = open("summary.dat","aw") 
+
 
 myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
@@ -15,12 +15,20 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 20000
+tovinfo.nzones = 80000
 tovinfo.rmax = 100.0
 tovinfo.eostype = 3
 
-temps = [0.5,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0,50.0]
 yes = [0.1,0.15,0.2,0.25,0.3]
+
+tmin = 0.5
+tmax = 50.0
+dtemp = 0.5
+ntemp = int((tmax-tmin)/dtemp)+1
+temps = zeros(ntemp)
+for i in range(ntemp):
+	temps[i] = 0.5 + dtemp*i
+
 
 for ii in range(len(temps)):
     for jj in range(len(yes)):
@@ -29,7 +37,7 @@ for ii in range(len(temps)):
         par2 = yes[jj]
         print "T = %5.2f, Y_e = %5.2f" % (par1,par2)
         print "Preparing EOS table: ",mytype
-        rhomin = 1.0e7
+        rhomin = 1.0e6
         rhomax = 8.0e15
         tovinfo.eoslrhomin = log10(rhomin*rho_gf)
         tovinfo.eoslrhomax = log10(rhomax*rho_gf)
@@ -41,7 +49,7 @@ for ii in range(len(temps)):
         tovinfo.eosdlrhoi = 1.0/dlrho
         (tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin,tovinfo)
 
-        outdata = tov_sequence(2.0e14,7.0e15,50,tovinfo)
+        outdata = tov_sequence(3.0e14,7.0e15,50,tovinfo)
     
         filename = mytype+"_T%06.3f_Ye%06.3f.dat" % (par1, par2)
         outfile=open(filename,"w")
@@ -50,6 +58,10 @@ for ii in range(len(temps)):
             outfile.write(line)
         outfile.close()
 
+        # Look where baryonic mass is maximal, not gravitational
+        # mass, because that could just be heat and not actual mass.
+        # This has the advantage of excluding puffed-up low-density
+        # configurations.
         imax = outdata[:,2].argmax() 
         print "T = %5.2f, Y_e = %5.2f" % (par1,par2)
         print "Maximum mass: M_grav = %15.6E   M_bary = %15.6E " % \
@@ -58,11 +70,12 @@ for ii in range(len(temps)):
         print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
         print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
 
-        outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
+	sfile = open("summary_fixed_T_Ye.dat","aw") 
+	outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
             (par1,par2,outdata[imax,1],outdata[imax,2],outdata[imax,0]*inv_rho_gf,\
                  outdata[imax,3]*inv_length_gf)
 
         sfile.write(outstring)
+	sfile.close()
 
 
-sfile.close()

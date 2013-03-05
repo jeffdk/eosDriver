@@ -24,12 +24,13 @@ class tovinfoclass(object):
         self.eosdlrho = 0.0
         self.eosdlrhoi = 0.0
         self.minpress = 0.0
+        self.stopflag = False
 
 # global constants
 ggrav = 1.0
 clite = 1.0
 msun = 1.0
-precision = 1.0e-10
+precision = 1.0e-12
 
 def tabeos_press_eps(rho,tovinfo):
     # get pressure and eps for given density
@@ -56,6 +57,7 @@ def tabeos_press_eps(rho,tovinfo):
 def get_rho_eps(press,rho_old,tovinfo):
     polyK = tovinfo.polyK
     polyG = tovinfo.polyG
+    tovinfo.stopflag = False
     if tovinfo.eostype == 1:
         # analytic polytropic case
         rho = (press / polyK)**(1.0/polyG)
@@ -88,9 +90,9 @@ def get_rho_eps(press,rho_old,tovinfo):
 
             if (rho_guess <= 10.0**tovinfo.eoslrhomin):
                 rho_guess = 10.0**tovinfo.eoslrhomin
-                press = tovinfo.minpress
                 eps = 10.0**tovinfo.eostable[0,1]-tovinfo.eosepsshift
-                rho = rho_guess*0.99
+                rho = rho_guess*0.9
+                tovinfo.stopflag = True
                 return(rho,eps)
 
             if (counter > 10000):
@@ -131,7 +133,7 @@ def tov_RHS(r,data,tovinfo,rho_old):
     else:
         # RHS inside the star -- solver for
         # hydrostatic equilibrium
-        if(press > tovinfo.minpress):
+        if(press > tovinfo.minpress and not tovinfo.stopflag):
             rhs[0] = - ggrav / r**2 * \
                 (rho + rho*eps/clite**2 + press/clite**2) * \
                 (mass + 4.0*pi*r**3 * press/clite**2) * \
@@ -139,7 +141,7 @@ def tov_RHS(r,data,tovinfo,rho_old):
         else:
             rhs[0] = 0.0
 
-        # gravitational mass
+        # gravitational mass 
         rhs[1] = 4.0*pi*r**2 * u
 
         # baryonic mass
@@ -209,6 +211,7 @@ def tov_integrate(rho_c,tovinfo):
 
     # set up grid
     (rad,dr) = set_grid(tovinfo.rmax,tovinfo.nzones)
+    tovinfo.stopflag = False
 
     nzones = tovinfo.nzones
     # initialize some variables
@@ -245,12 +248,12 @@ def tov_integrate(rho_c,tovinfo):
     tovout[0,2] = rhos[0]
     tovout[0,6] = 0.0
     i = 0
-    while (isurf == 0 and i < nzones):
+    while (isurf == 0 and i < nzones-1 and not tovinfo.stopflag):
 
-        tovdata[i+1,:] = tov_RK2(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
+        tovdata[i+1,:] = tov_RK3(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
 
         # check if press below 0
-        if(tovdata[i+1,0] <= tovinfo.minpress*10.0):
+        if(tovdata[i+1,0] <= tovinfo.minpress or tovinfo.stopflag):
             tovdata[i+1,0] = tovinfo.minpress
             if(isurf == 0):
                 isurf = i+1
@@ -268,15 +271,25 @@ def tov_integrate(rho_c,tovinfo):
         # compute density
         (tovout[i+1,0],tovout[i+1,2]) = \
                get_rho_eps(tovdata[i+1,0],rhos[i],tovinfo)
+
+        if(tovinfo.stopflag):
+            isurf = i+1
+
         # compute eps
         rhos[i+1] = tovout[i+1,0]
-#        print i,rad[i+1],tovout[i,3],rhos[i+1],tovdata[i+1,0],tovinfo.minpress
+#        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
+#                 tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
         
         i+=1
 
+    if (isurf == 0):
+        print "Could not solve for (entire?) TOV!"
+        print "Setting isurf to nzones-1"
+        isurf = nzones-1
 
-#    print rad[isurf], rhos[isurf]
-    
+
+#    print isurf, rad[isurf], rhos[isurf]
+ 
     return (tovout,isurf,rad,dr)
 
 
