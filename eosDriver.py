@@ -347,7 +347,7 @@ class eosDriver(object):
             xye= ye[iye-1] * (1. - deltaMunu) + ye[iye] * deltaMunu
             return xye
         else:
-            imin = xmunu[:-1].argmin()
+            imin = abs(xmunu[:-1]).argmin()
             xye = ye[imin]
             print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
                   "RETURNING closestYeToMunuZero INSTEAD"
