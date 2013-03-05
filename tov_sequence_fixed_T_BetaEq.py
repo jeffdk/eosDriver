@@ -7,7 +7,7 @@ from eosDriver import eosDriver
 import makeeostable
 from tov import *
 
-sfile = open("summary_fixed_T_BetaEq.dat","aw") 
+
 
 myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
@@ -43,12 +43,12 @@ for ii in range(len(temps)):
             tovinfo.nrhos,rhomin,rhomax,myeos,mytype,par1,par2)
 
 	# DEBUG write eos table
-	eosfile=open("eosout.dat","w")
-	for i in range(len(tovinfo.eostable[:,0])):
-		sline = "%15.6E %15.6E %15.6E\n" % \
-		    (tovinfo.logrhos[i],tovinfo.eostable[i,0],tovinfo.eostable[i,1])
-		eosfile.write(sline)
-	eosfile.close()
+#	eosfile=open("eosout.dat","w")
+#	for i in range(len(tovinfo.eostable[:,0])):
+#		sline = "%15.6E %15.6E %15.6E\n" % \
+#		    (tovinfo.logrhos[i],tovinfo.eostable[i,0],tovinfo.eostable[i,1])
+#		eosfile.write(sline)
+#	eosfile.close()
     
         tovinfo.eosdlrho = dlrho
         tovinfo.eosdlrhoi = 1.0/dlrho
@@ -71,11 +71,10 @@ for ii in range(len(temps)):
         print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
         print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
 
+	sfile = open("summary_fixed_T_BetaEq.dat","aw") 
         outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
             (par1,par2,outdata[imax,1],outdata[imax,2],outdata[imax,0]*inv_rho_gf,\
                  outdata[imax,3]*inv_length_gf)
 
         sfile.write(outstring)
-
-
-sfile.close()
+	sfile.close()

@@ -7,7 +7,7 @@ from eosDriver import eosDriver
 import makeeostable
 from tov import *
 
-sfile = open("summary.dat","aw") 
+
 
 myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
@@ -70,11 +70,12 @@ for ii in range(len(temps)):
         print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
         print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
 
-        outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
+	sfile = open("summary_fixed_T_Ye.dat","aw") 
+	outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
             (par1,par2,outdata[imax,1],outdata[imax,2],outdata[imax,0]*inv_rho_gf,\
                  outdata[imax,3]*inv_length_gf)
 
         sfile.write(outstring)
+	sfile.close()
 
 
-sfile.close()
