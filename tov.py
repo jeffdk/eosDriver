@@ -248,7 +248,7 @@ def tov_integrate(rho_c,tovinfo):
     tovout[0,2] = rhos[0]
     tovout[0,6] = 0.0
     i = 0
-    while (isurf == 0 and i < nzones and not tovinfo.stopflag):
+    while (isurf == 0 and i < nzones-1 and not tovinfo.stopflag):
 
         tovdata[i+1,:] = tov_RK3(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
 
@@ -277,6 +277,11 @@ def tov_integrate(rho_c,tovinfo):
 #                 tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
         
         i+=1
+
+    if isurf == 0:
+        print "Could not solve for (entire?) TOV!"
+        print "Setting isurf to nzones-1"
+        isurf = nzones-1
 
 
 #    print isurf, rad[isurf], rhos[isurf]

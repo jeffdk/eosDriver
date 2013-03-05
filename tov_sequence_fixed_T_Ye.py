@@ -15,8 +15,8 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 40000
-tovinfo.rmax = 50.0
+tovinfo.nzones = 80000
+tovinfo.rmax = 100.0
 tovinfo.eostype = 3
 
 yes = [0.1,0.15,0.2,0.25,0.3]
@@ -49,7 +49,7 @@ for ii in range(len(temps)):
         tovinfo.eosdlrhoi = 1.0/dlrho
         (tovinfo.minpress,bogus) = tabeos_press_eps(rho_gf*rhomin,tovinfo)
 
-        outdata = tov_sequence(3.0e14,7.0e15,50,tovinfo)
+        outdata = tov_sequence(4.0e14,7.0e15,50,tovinfo)
     
         filename = mytype+"_T%06.3f_Ye%06.3f.dat" % (par1, par2)
         outfile=open(filename,"w")

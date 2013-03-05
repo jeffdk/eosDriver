@@ -15,11 +15,10 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 40000
-tovinfo.rmax = 50.0
+tovinfo.nzones = 80000
+tovinfo.rmax = 100.0
 tovinfo.eostype = 3
 
-temps = [0.5,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0,50.0]
 
 tmin = 0.5
 tmax = 50.0
@@ -35,7 +34,7 @@ for ii in range(len(temps)):
 	par2 = 0.0
         print "T = %5.2f, betaeq" % (par1)
         print "Preparing EOS table: ",mytype
-        rhomin = 1.0e7
+        rhomin = 1.0e6
         rhomax = 8.0e15
         tovinfo.eoslrhomin = log10(rhomin*rho_gf)
         tovinfo.eoslrhomax = log10(rhomax*rho_gf)
