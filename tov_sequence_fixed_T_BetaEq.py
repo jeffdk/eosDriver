@@ -63,7 +63,23 @@ for ii in range(len(temps)):
             outfile.write(line)
         outfile.close()
 
+	# Look where baryonic mass is maximal, not gravitational
+        # mass, because that could just be heat and not actual mass.
+        # This has the advantage of excluding puffed-up low-density
+        # configurations.
+	# As a second condition, we also demand that the radius be
+	# smaller than 50 Msun
         imax = outdata[:,2].argmax() 
+	if(outdata[imax,3] > 50.0):
+		imax = 0
+		i = 0
+		mmax = 0.0
+		while(i < len(outdata[:,0])):
+			if(outdata[i,2]>mmax):
+				mmax = outdata[imax,2]
+				imax = i
+			i +=1
+
         print "T = %5.2f, BetaEq" % (par1)
         print "Maximum mass: M_grav = %15.6E   M_bary = %15.6E " % \
             (outdata[imax,1],outdata[imax,2])
