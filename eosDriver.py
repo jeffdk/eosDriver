@@ -11,8 +11,9 @@ import h5py
 import math
 import numpy
 import consts
-from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
-import scipy
+from utils import multidimInterp, linInterp, solveRootBisect,\
+    BracketingError, relativeError, lookupIndexBisect
+import scipy.optimize as scipyOptimize
 
 
 class eosDriver(object):
@@ -164,6 +165,7 @@ class eosDriver(object):
 
 
     #todo: RIGHT NOW HARD CODED TO BE GIVEN RHO AND FIND T!! FIX
+    #     solveVar is T and otherVar is rho!
     def setConstQuantityAndBetaEqState(self, pointDict, quantity, target):
         """
         Does inefficient 2D root solve to set state at neutrino-less
@@ -174,11 +176,11 @@ class eosDriver(object):
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
         assert all([key in self.indVars for key in pointDict.keys()])
-        assert len(pointDict) < 2, "State overdetermined for more than 2 indVars!"
+        assert len(pointDict) < 2, "State overdetermined for more than 1 indVars!"
         #todo: check quantity is valid 3D table
 
         #defines 1D root solver to use in routine
-        solveRoot = scipy.optimize.brentq  # solveRootBisect
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
 
         solveVarName = 'logtemp'
         currentSolveVar =  0.0
@@ -225,13 +227,13 @@ class eosDriver(object):
                                       self.h5file['ye'][-1], (), tol)
             except BracketingError as err:
                 print "Root for ye not bracketed on entire table!" + str(err)
-                currentYe =  self.h5file['ye'][0]
-                print "\n recovering by selecting min bound for answer: %s" % currentYe
+                currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
+                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
             #ValueError is thrown by scipy's brentq
             except ValueError as err:
                 print "Error in scipy root solver solving for ye: ", str(err)
-                currentYe =  self.h5file['ye'][0]
-                print "Recovering by selecting min bound for answer: %s" % currentYe
+                currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
+                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
             #print "currentYe: ", currentYe, "\tcurrentT: ", currentSolveVar
 
             yeError = relativeError(currentYe, previousYe)
@@ -245,6 +247,74 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe, newDict['temp'] # TODO TEMP HARD CODE
 
+    def findYeOfMinAbsMunu(self, point):
+        """
+        Given a point in T, rho, calculate for what value of the Ye
+        table grid-points is munu the closest to zero.
+        """
+        closestYeToMunusZero = None
+        closestMunuToZero = 1.0e300
+
+        for i, ye in enumerate(self.h5file['ye'][:]):
+            munu = multidimInterp(point, [self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                  self.h5file['munu'][i, ...],
+                                  linInterp, 2)
+            if abs(munu) < closestMunuToZero:
+                closestYeToMunusZero = ye
+                closestMunuToZero = abs(munu)
+        return closestYeToMunusZero
+
+    def newSetBetaEqState(self, pointDict):
+        """
+        Takes dictionary for physical state values EXCEPT Ye, then sets Ye
+        via solving for neutrino-less beta equilibrium.
+        Modifies self.physicalState
+        """
+        assert isinstance(pointDict, dict)
+        assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
+                                      "setting neutrinoless beta equlibrium!"
+        assert all([key in self.indVars for key in pointDict.keys()])
+        assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
+
+        #defines 1D root solver to use in routine
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
+
+
+        for key, value in pointDict.items():
+            if key in self.logVars:
+                pointDict['log' + key] = numpy.log10(value)
+
+        #ASSUME 2 INDEPENENT VARIABLES ARE rho & temp
+        logtemp = pointDict['logtemp']
+        logrho = pointDict['logrho']
+
+        tol = 1.e-6
+        getYe = lambda x : multidimInterp((x, logtemp, logrho),
+                                          [self.h5file['ye'][:],
+                                           self.h5file['logtemp'],
+                                           self.h5file['logrho']],
+                                          self.h5file['munu'][...],
+                                          linInterp, 2)
+        #check for bracketing error in root solve for ye
+        try:
+            currentYe = solveRoot(getYe,
+                                  self.h5file['ye'][0],
+                                  self.h5file['ye'][-1], (), tol)
+        except BracketingError as err:
+            print "Root for ye not bracketed on entire table!" + str(err)
+            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
+            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+        #ValueError is thrown by scipy's brentq
+        except ValueError as err:
+            print "Error in scipy root solver solving for ye: ", str(err)
+            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
+            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+
+        newDict = pointDict.copy()
+        newDict['ye'] = currentYe
+        self.setState(newDict)
+        return currentYe
 
     def setBetaEqState(self, pointDict):
         """
@@ -286,7 +356,10 @@ class eosDriver(object):
         tableIndexes = []
         for i, indVar in enumerate(self.indVars):
             value = self.physicalState[i]
-            tableIndexes.append(self.lookupIndex(indVar, value))
+            if indVar in self.logVars:
+                value = math.log10(value)
+                indVar = 'log' + indVar
+            tableIndexes.append(lookupIndexBisect(value, self.h5file[indVar][:]))
 
         answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
