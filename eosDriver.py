@@ -6,7 +6,6 @@
 
 Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 """
-import sys
 import h5py
 import math
 import numpy
@@ -265,7 +264,9 @@ class eosDriver(object):
                 closestMunuToZero = abs(munu)
         return closestYeToMunusZero
 
-    def newSetBetaEqState(self, pointDict):
+    # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
+    # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
+    def setBetaEqState(self, pointDict):
         """
         Takes dictionary for physical state values EXCEPT Ye, then sets Ye
         via solving for neutrino-less beta equilibrium.
@@ -316,34 +317,6 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe
 
-    def setBetaEqState(self, pointDict):
-        """
-        Takes dictionary for physical state values EXCEPT Ye, then sets Ye
-        via solving for neutrino-less beta equilibrium.
-        Modifies self.physicalState
-        """
-        assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
-                                      "setting neutrinoless beta equlibrium!"
-        assert all([key in self.indVars for key in pointDict.keys()])
-
-        tableIndexes=[]
-        partialNewState=[]
-        for indVar in self.indVars:
-            if indVar in pointDict:
-                tableIndexes.append(self.lookupIndex(indVar, pointDict[indVar]))
-                partialNewState.append(pointDict[indVar])
-            elif indVar == 'ye':
-                tableIndexes.append(None)
-                partialNewState.append(None)
-            else:
-                assert False, "indVar %s is not ye or in pointDict!" % indVar
-        # physical state for non-ye independent variables is required in
-        # getYeBetaEqFromTable for interpolation
-        newDict = pointDict.copy()
-        newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes, partialNewState)
-        self.setState(newDict)
-        return newDict['ye']
-
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantities, deLog10Result=False):
         """
@@ -366,130 +339,6 @@ class eosDriver(object):
         if deLog10Result:
             answers = numpy.power(10.0,answers)
         return answers
-
-    # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
-    # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
-    # TODO: The logic of this routine combined with setBetaYe is not great; refactor it
-    def getYeBetaEqFromTable(self, tableIndex, partialNewState):
-        """
-        Work routine to solve for Ye in neutrino-less beta equilibrium.
-        Expects 'None' in partialNewState list where Ye needs filling in
-        Modifies self.physicalState
-        """
-        munu = self.h5file['munu']
-        ye = self.h5file['ye']
-        
-        logrhos = self.h5file['logrho']
-
-        previousPoint = tuple( 0 if val is None else val for val in tableIndex )
-        currentMunu = previousMunu = munu[previousPoint]
-        gotZero = False
-        closestYeToZero = ye[0]
-        debugList = []
-
-        # simple point to find Y_e based on where munu is closest to zero
-        # no abstraction, just straighforward code
-
-        # okay, tableIndex has (iye,itemp,irho), where the indices are
-        # the indices bordering the current ye,temp,rho from below
-
-        # the easiest thing is now to get munu(rho,T,ye) for all Ye
-        xmunu = numpy.zeros(len(ye))
-        irho = tableIndex[2]
-        itemp = tableIndex[1]
-
-        # apparently, the interpolator can't handle
-        # the case where we want to use the max Y_e in the table
-        for iye in range(0,len(ye)-1):
-            thisPoint = tuple([iye,itemp,irho])
-            self.physicalState = tuple([ye[iye],partialNewState[1],partialNewState[2]])
-            xmunu[iye] = self.interpolateTable(thisPoint, 'munu')
-
-        # now that we have munu, just need to find the point where it
-        # changes sign
-        cont = True
-        iye = 1
-        while iye < len(ye)-2 and cont:
-            if(xmunu[iye]*xmunu[iye-1] < 0):
-                cont = False
-            else:
-                iye = iye+1
-
-        if not cont:
-            deltaMunu = -xmunu[iye-1] / (xmunu[iye] - xmunu[iye-1])
-            xye= ye[iye-1] * (1. - deltaMunu) + ye[iye] * deltaMunu
-            return xye
-        else:
-            imin = abs(xmunu[:-1]).argmin()
-            xye = ye[imin]
-            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
-                  "RETURNING closestYeToMunuZero INSTEAD"
-            return xye
-
-
-        
-        # below is Jeff's code -- much smarter, but produces strange results
-
-        i = 0
-        for i in range(len(munu)):
-            thisPoint = []
-            for j in tableIndex:
-                if j is None:
-                    thisPoint.append(i)
-                else:
-                    thisPoint.append(j)
-            thisPoint = tuple(thisPoint)
-            #adjust physical state to current state
-            self.physicalState = tuple( ye[i] if val is None else val for val in partialNewState )
-            debugList.append( [thisPoint,  currentMunu,
-                               self.physicalState, 'munupoint:', munu[previousPoint]])
-            currentMunu = self.interpolateTable(previousPoint, 'munu')
-            #print thisPoint, currentMunu , self.physicalState
-            if abs(ye[i] < closestYeToZero):
-                ye[i] = closestYeToZero
-            if currentMunu * previousMunu < 0.0:
-                gotZero = True
-                break
-            previousPoint = thisPoint
-            previousMunu = currentMunu
-        #assert gotZero, \
-        #    "Did not find zero of munu for all ye at non-ye parameters: %s" % partialNewState
-        if not gotZero:
-            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
-                  "RETURNING closestYeToZero INSTEAD"
-            for entry in debugList:
-                #print entry
-                pass
-            return closestYeToZero
-        index = i - 1
-        deltaMunu = -previousMunu / (currentMunu - previousMunu)
-        return ye[index] * (1. - deltaMunu) + ye[index + 1] * deltaMunu
-
-    def lookupIndex(self, indVar, value):
-        """
-        Returns the index directly preceding value
-        Uses a dumb sequential search to find index.
-        """
-        assert indVar in self.indVars
-
-        if indVar in self.logVars:
-            value = math.log10(value)
-            indVar = 'log' + indVar
-
-        previousValue = -1.0e300
-        thisVal = None
-        for i, thisVal in enumerate(self.h5file[indVar][:]):
-            assert thisVal > previousValue, \
-                "Lookup index assumes independent variable table is increasing!"
-            #print thisVal
-            if value < thisVal:
-                assert i > 0, "Uh oh, value %s for variable '%s' is below the table "\
-                              "minimum: %s" % (value, indVar, thisVal)
-                return i - 1
-            previousValue = thisVal
-        assert thisVal is not None, "Looks like table for %s is empty!" % indVar
-        assert False, "Uh oh, value %s for variable '%s' is above the table "\
-                      "maximum: %s" % (value, indVar, thisVal)
 
     #just does trilinear interpolation; does NOT try and account/correct
     # for log spacing in independent or dependent variable
