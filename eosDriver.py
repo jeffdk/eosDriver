@@ -62,7 +62,7 @@ class eosDriver(object):
     def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
         """
         Two temperature prescriptions available:
-        1) Fix a quantity
+        1) Fix a quantity to determine T
          {'quantity':  a dependent variable in the EOS table,
           'target':    the target value you wish to fix 'quantity to'}
           E.g.: {'quantity': 'entropy', 'target': 1.0}
@@ -90,6 +90,10 @@ class eosDriver(object):
                                          for key in fixedQuantityKeys])
         assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
 
+        #defines 1D root solver to use in routine
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
+        tol = 1.0e-8
+
         tempOfLog10Rhob = None
 
         if isothermalPrescription:
@@ -100,9 +104,36 @@ class eosDriver(object):
             scale = tempPrescription['rollScale']
             tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
                                          * (numpy.tanh((lr - mid)/scale) + 1.0)
-        if fixedQuantityPrescription:
-            assert False, "fixedQuantityPrescription not implemented yet!"
+        elif fixedQuantityPrescription:
+            quantity = tempPrescription['quantity']
+            target = tempPrescription['target']
+            if ye is not None:
 
+                def getTemp(t, lr):
+
+                    answer = multidimInterp((ye, t, lr),
+                                            [self.h5file['ye'][:],
+                                             self.h5file['logtemp'],
+                                             self.h5file['logrho']],
+                                            self.h5file[quantity][...],
+                                            linInterp, 2) - target
+                    #print t, lr, answer
+                    return answer
+
+                def solveTemp(lr):
+
+                    try:
+                        answer = solveRoot(lambda T: getTemp(T, lr),
+                                           self.h5file['logtemp'][0],
+                                           self.h5file['logtemp'][-1],
+                                           (), tol)
+                    except ValueError as err:
+                        print "Root for log10(T) not bracketed on entire table! " + str(err)
+                        answer = self.h5file['logtemp'][0]
+                        print "Recovering with lowest table value, answer: %s" % answer
+                    return numpy.power(10.0, answer)
+
+                tempOfLog10Rhob = solveTemp
 
         log10numberdensityMin = 2.67801536139756E+01
         log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
@@ -140,7 +171,6 @@ class eosDriver(object):
                                                                  logpress))
 
 
-
     def setState(self, pointDict):
         """
         Takes dictionary defining a physical state, aka the EOS table's
@@ -162,6 +192,10 @@ class eosDriver(object):
         """
         self.physicalState = (None for unused in self.indVars)
 
+
+    def setConstQuantityState(self, pointDict, quantity, target):
+        assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
+        assert False, "setConstQuantityState not implemented yet!"
 
     #todo: RIGHT NOW HARD CODED TO BE GIVEN RHO AND FIND T!! FIX
     #     solveVar is T and otherVar is rho!
