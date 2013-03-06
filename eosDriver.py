@@ -6,13 +6,13 @@
 
 Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 """
-import sys
 import h5py
 import math
 import numpy
 import consts
-from utils import multidimInterp, linInterp, solveRootBisect, BracketingError, relativeError
-import scipy
+from utils import multidimInterp, linInterp, solveRootBisect,\
+    BracketingError, relativeError, lookupIndexBisect
+import scipy.optimize as scipyOptimize
 
 
 class eosDriver(object):
@@ -46,7 +46,7 @@ class eosDriver(object):
         self.h5file = h5py.File(tableFilename, 'r')
         self.tableShape = numpy.shape(self.h5file['logpress'])
         self.energy_shift = self.h5file['energy_shift'][0]
-        print self.energy_shift
+        #print self.energy_shift
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
         newOrdering = [None for unused in self.indVars]
@@ -62,7 +62,7 @@ class eosDriver(object):
     def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
         """
         Two temperature prescriptions available:
-        1) Fix a quantity
+        1) Fix a quantity to determine T
          {'quantity':  a dependent variable in the EOS table,
           'target':    the target value you wish to fix 'quantity to'}
           E.g.: {'quantity': 'entropy', 'target': 1.0}
@@ -80,7 +80,7 @@ class eosDriver(object):
         Not setting ye will give results for neutrinoless beta equilibrium.
         NOT IMPLEMENTED YET
         """
-        assert ye is not None, "Must set ye! BetaEq not implemented yet"
+
         isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
         fixedQuantityKeys = ('quantity', 'target')
         assert isinstance(tempPrescription, dict)
@@ -90,7 +90,12 @@ class eosDriver(object):
                                          for key in fixedQuantityKeys])
         assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
 
-        tempOfLog10Rhob = None
+        #defines 1D root solver to use in routine
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
+        tol = 1.0e-6
+
+        tempOfLog10Rhob = lambda lr: None
+        yeOfLog10Rhob = lambda ye: ye
 
         if isothermalPrescription:
             print "Using isothermal prescription in writeRotNSeosfile"
@@ -100,16 +105,44 @@ class eosDriver(object):
             scale = tempPrescription['rollScale']
             tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
                                          * (numpy.tanh((lr - mid)/scale) + 1.0)
-        if fixedQuantityPrescription:
-            assert False, "fixedQuantityPrescription not implemented yet!"
+        elif fixedQuantityPrescription:
+            print "Using fixed quantity prescription in writeRotNSeosfile"
+            quantity = tempPrescription['quantity']
+            target = tempPrescription['target']
+            if ye is not None:
+                def getTemp(t, lr):
+                    answer = multidimInterp((ye, t, lr),
+                                            [self.h5file['ye'][:],
+                                             self.h5file['logtemp'],
+                                             self.h5file['logrho']],
+                                            self.h5file[quantity][...],
+                                            linInterp, 2) - target
+                    #print t, lr, answer
+                    return answer
 
-
+                def solveTemp(lr):
+                    try:
+                        answer = solveRoot(lambda T: getTemp(T, lr),
+                                           self.h5file['logtemp'][0],
+                                           self.h5file['logtemp'][-1],
+                                           (), tol)
+                    except ValueError as err:
+                        print "Root for log10(T) not bracketed on entire table! " + str(err)
+                        answer = self.h5file['logtemp'][0]
+                        print "Recovering with lowest table value, answer: %s" % answer
+                    return numpy.power(10.0, answer)
+                tempOfLog10Rhob = solveTemp
+            else:
+                # Otherwise tempOfLog10Rhob will return None,
+                # this will trigger use of setConstQuantityAndBetaEq
+                # in the output loop
+                pass
         log10numberdensityMin = 2.67801536139756E+01
         log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
 
         npoints = 600
 
-        dlogn = (log10numberdensityMax - log10numberdensityMin) / (npoints - 1.0)
+        #dlogn = (log10numberdensityMax - log10numberdensityMin) / (npoints - 1.0)
 
         logns = numpy.linspace(log10numberdensityMin, log10numberdensityMax, npoints)
 
@@ -119,10 +152,17 @@ class eosDriver(object):
             numberdensityCGS = numpy.power(10.0, logn)
             rho_b_CGS = numberdensityCGS * consts.CGS_AMU
             logrho_b_CGS = numpy.log10(rho_b_CGS)
+
             temp = tempOfLog10Rhob(logrho_b_CGS)
-            #print logrho_b_CGS, temp, (numpy.tanh((logrho_b_CGS - mid)/scale) + 1.0)
-            #print 'rho ', rho_b_CGS, ' temp ', temp, ' ye ', ye
-            self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
+
+            if ye is None and temp is not None:
+                self.setBetaEqState({'rho':rho_b_CGS, 'temp': temp})
+            elif ye is None and temp is None:
+                self.setConstQuantityAndBetaEqState({'rho': rho_b_CGS},
+                                                    quantity,
+                                                    target)
+            else:
+                self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
 
             logpress, logeps = self.query(['logpress', 'logenergy'])
 
@@ -133,12 +173,11 @@ class eosDriver(object):
 
             totalEnergyDensity = rho_b_CGS * (1.0 + eps)
             logTotalEnergyDensity = numpy.log10(totalEnergyDensity)
-            print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
+            #print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
             #print logrho_b_CGS, eps, logpress
-            outfile.write(" {:24.14e} {:24.14e} {:24.14e}\n".format(logn,
-                                                                     logTotalEnergyDensity,
-                                                                     logpress))
-
+            outfile.write("{:24.14e}{:24.14e}{:24.14e}\n".format(logn,
+                                                                 logTotalEnergyDensity,
+                                                                 logpress))
 
 
     def setState(self, pointDict):
@@ -163,7 +202,12 @@ class eosDriver(object):
         self.physicalState = (None for unused in self.indVars)
 
 
+    def setConstQuantityState(self, pointDict, quantity, target):
+        assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
+        assert False, "setConstQuantityState not implemented yet!"
+
     #todo: RIGHT NOW HARD CODED TO BE GIVEN RHO AND FIND T!! FIX
+    #     solveVar is T and otherVar is rho!
     def setConstQuantityAndBetaEqState(self, pointDict, quantity, target):
         """
         Does inefficient 2D root solve to set state at neutrino-less
@@ -171,14 +215,15 @@ class eosDriver(object):
          and then returns ye, temp
         Modifies self.physicalState
         """
+        print "setConstQuantityAndBetaEqState: ", pointDict
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
         assert all([key in self.indVars for key in pointDict.keys()])
-        assert len(pointDict) < 2, "State overdetermined for more than 2 indVars!"
+        assert len(pointDict) < 2, "State overdetermined for more than 1 indVars!"
         #todo: check quantity is valid 3D table
 
         #defines 1D root solver to use in routine
-        solveRoot = scipy.optimize.brentq  # solveRootBisect
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
 
         solveVarName = 'logtemp'
         currentSolveVar =  0.0
@@ -208,9 +253,19 @@ class eosDriver(object):
                                                     self.h5file[otherVarName]],
                                                    self.h5file[quantity][...],
                                                    linInterp, 2) - target
-            currentSolveVar = solveRoot(getSolveVar,
-                                        self.h5file[solveVarName][0],
-                                        self.h5file[solveVarName][-1],(),tol)
+            try:
+                currentSolveVar = solveRoot(getSolveVar,
+                                            self.h5file[solveVarName][0],
+                                            self.h5file[solveVarName][-1],
+                                            (),tol)
+            except ValueError as err:
+                print "Root for log10(T) not bracketed on entire table: " \
+                      + str(err)
+                currentSolveVar = self.h5file['logtemp'][0]
+                print "Recovering with lowest table value, answer: %s" \
+                      % currentSolveVar
+
+
 
             getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
                                               [self.h5file['ye'][:],
@@ -225,13 +280,13 @@ class eosDriver(object):
                                       self.h5file['ye'][-1], (), tol)
             except BracketingError as err:
                 print "Root for ye not bracketed on entire table!" + str(err)
-                currentYe =  self.h5file['ye'][0]
-                print "\n recovering by selecting min bound for answer: %s" % currentYe
+                currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
+                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
             #ValueError is thrown by scipy's brentq
             except ValueError as err:
                 print "Error in scipy root solver solving for ye: ", str(err)
-                currentYe =  self.h5file['ye'][0]
-                print "Recovering by selecting min bound for answer: %s" % currentYe
+                currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
+                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
             #print "currentYe: ", currentYe, "\tcurrentT: ", currentSolveVar
 
             yeError = relativeError(currentYe, previousYe)
@@ -245,34 +300,76 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe, newDict['temp'] # TODO TEMP HARD CODE
 
+    def findYeOfMinAbsMunu(self, point):
+        """
+        Given a point in T, rho, calculate for what value of the Ye
+        table grid-points is munu the closest to zero.
+        """
+        closestYeToMunusZero = None
+        closestMunuToZero = 1.0e300
 
+        for i, ye in enumerate(self.h5file['ye'][:]):
+            munu = multidimInterp(point, [self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                  self.h5file['munu'][i, ...],
+                                  linInterp, 2)
+            if abs(munu) < closestMunuToZero:
+                closestYeToMunusZero = ye
+                closestMunuToZero = abs(munu)
+        return closestYeToMunusZero
+
+    # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
+    # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
     def setBetaEqState(self, pointDict):
         """
         Takes dictionary for physical state values EXCEPT Ye, then sets Ye
         via solving for neutrino-less beta equilibrium.
         Modifies self.physicalState
         """
+        assert isinstance(pointDict, dict)
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
         assert all([key in self.indVars for key in pointDict.keys()])
+        assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
 
-        tableIndexes=[]
-        partialNewState=[]
-        for indVar in self.indVars:
-            if indVar in pointDict:
-                tableIndexes.append(self.lookupIndex(indVar, pointDict[indVar]))
-                partialNewState.append(pointDict[indVar])
-            elif indVar == 'ye':
-                tableIndexes.append(None)
-                partialNewState.append(None)
-            else:
-                assert False, "indVar %s is not ye or in pointDict!" % indVar
-        # physical state for non-ye independent variables is required in
-        # getYeBetaEqFromTable for interpolation
+        #defines 1D root solver to use in routine
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
+
+
+        for key, value in pointDict.items():
+            if key in self.logVars:
+                pointDict['log' + key] = numpy.log10(value)
+
+        #ASSUME 2 INDEPENENT VARIABLES ARE rho & temp
+        logtemp = pointDict['logtemp']
+        logrho = pointDict['logrho']
+
+        tol = 1.e-6
+        getYe = lambda x : multidimInterp((x, logtemp, logrho),
+                                          [self.h5file['ye'][:],
+                                           self.h5file['logtemp'],
+                                           self.h5file['logrho']],
+                                          self.h5file['munu'][...],
+                                          linInterp, 2)
+        #check for bracketing error in root solve for ye
+        try:
+            currentYe = solveRoot(getYe,
+                                  self.h5file['ye'][0],
+                                  self.h5file['ye'][-1], (), tol)
+        except BracketingError as err:
+            print "Root for ye not bracketed on entire table!" + str(err)
+            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
+            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+        #ValueError is thrown by scipy's brentq
+        except ValueError as err:
+            print "Error in scipy root solver solving for ye: ", str(err)
+            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
+            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+
         newDict = pointDict.copy()
-        newDict['ye'] = self.getYeBetaEqFromTable(tableIndexes, partialNewState)
+        newDict['ye'] = currentYe
         self.setState(newDict)
-        return newDict['ye']
+        return currentYe
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantities, deLog10Result=False):
@@ -286,137 +383,16 @@ class eosDriver(object):
         tableIndexes = []
         for i, indVar in enumerate(self.indVars):
             value = self.physicalState[i]
-            tableIndexes.append(self.lookupIndex(indVar, value))
+            if indVar in self.logVars:
+                value = math.log10(value)
+                indVar = 'log' + indVar
+            tableIndexes.append(lookupIndexBisect(value, self.h5file[indVar][:]))
 
         answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
         if deLog10Result:
             answers = numpy.power(10.0,answers)
         return answers
-
-    # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
-    # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
-    # TODO: The logic of this routine combined with setBetaYe is not great; refactor it
-    def getYeBetaEqFromTable(self, tableIndex, partialNewState):
-        """
-        Work routine to solve for Ye in neutrino-less beta equilibrium.
-        Expects 'None' in partialNewState list where Ye needs filling in
-        Modifies self.physicalState
-        """
-        munu = self.h5file['munu']
-        ye = self.h5file['ye']
-        
-        logrhos = self.h5file['logrho']
-
-        previousPoint = tuple( 0 if val is None else val for val in tableIndex )
-        currentMunu = previousMunu = munu[previousPoint]
-        gotZero = False
-        closestYeToZero = ye[0]
-        debugList = []
-
-        # simple point to find Y_e based on where munu is closest to zero
-        # no abstraction, just straighforward code
-
-        # okay, tableIndex has (iye,itemp,irho), where the indices are
-        # the indices bordering the current ye,temp,rho from below
-
-        # the easiest thing is now to get munu(rho,T,ye) for all Ye
-        xmunu = numpy.zeros(len(ye))
-        irho = tableIndex[2]
-        itemp = tableIndex[1]
-
-        # apparently, the interpolator can't handle
-        # the case where we want to use the max Y_e in the table
-        for iye in range(0,len(ye)-1):
-            thisPoint = tuple([iye,itemp,irho])
-            self.physicalState = tuple([ye[iye],partialNewState[1],partialNewState[2]])
-            xmunu[iye] = self.interpolateTable(thisPoint, 'munu')
-
-        # now that we have munu, just need to find the point where it
-        # changes sign
-        cont = True
-        iye = 1
-        while iye < len(ye)-2 and cont:
-            if(xmunu[iye]*xmunu[iye-1] < 0):
-                cont = False
-            else:
-                iye = iye+1
-
-        if not cont:
-            deltaMunu = -xmunu[iye-1] / (xmunu[iye] - xmunu[iye-1])
-            xye= ye[iye-1] * (1. - deltaMunu) + ye[iye] * deltaMunu
-            return xye
-        else:
-            imin = abs(xmunu[:-1]).argmin()
-            xye = ye[imin]
-            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
-                  "RETURNING closestYeToMunuZero INSTEAD"
-            return xye
-
-
-        
-        # below is Jeff's code -- much smarter, but produces strange results
-
-        i = 0
-        for i in range(len(munu)):
-            thisPoint = []
-            for j in tableIndex:
-                if j is None:
-                    thisPoint.append(i)
-                else:
-                    thisPoint.append(j)
-            thisPoint = tuple(thisPoint)
-            #adjust physical state to current state
-            self.physicalState = tuple( ye[i] if val is None else val for val in partialNewState )
-            debugList.append( [thisPoint,  currentMunu,
-                               self.physicalState, 'munupoint:', munu[previousPoint]])
-            currentMunu = self.interpolateTable(previousPoint, 'munu')
-            #print thisPoint, currentMunu , self.physicalState
-            if abs(ye[i] < closestYeToZero):
-                ye[i] = closestYeToZero
-            if currentMunu * previousMunu < 0.0:
-                gotZero = True
-                break
-            previousPoint = thisPoint
-            previousMunu = currentMunu
-        #assert gotZero, \
-        #    "Did not find zero of munu for all ye at non-ye parameters: %s" % partialNewState
-        if not gotZero:
-            print "WARNING COULD NOT FIND ZERO OF MUNU FOR BETA EQ; " \
-                  "RETURNING closestYeToZero INSTEAD"
-            for entry in debugList:
-                #print entry
-                pass
-            return closestYeToZero
-        index = i - 1
-        deltaMunu = -previousMunu / (currentMunu - previousMunu)
-        return ye[index] * (1. - deltaMunu) + ye[index + 1] * deltaMunu
-
-    def lookupIndex(self, indVar, value):
-        """
-        Returns the index directly preceding value
-        Uses a dumb sequential search to find index.
-        """
-        assert indVar in self.indVars
-
-        if indVar in self.logVars:
-            value = math.log10(value)
-            indVar = 'log' + indVar
-
-        previousValue = -1.0e300
-        thisVal = None
-        for i, thisVal in enumerate(self.h5file[indVar][:]):
-            assert thisVal > previousValue, \
-                "Lookup index assumes independent variable table is increasing!"
-            #print thisVal
-            if value < thisVal:
-                assert i > 0, "Uh oh, value %s for variable '%s' is below the table "\
-                              "minimum: %s" % (value, indVar, thisVal)
-                return i - 1
-            previousValue = thisVal
-        assert thisVal is not None, "Looks like table for %s is empty!" % indVar
-        assert False, "Uh oh, value %s for variable '%s' is above the table "\
-                      "maximum: %s" % (value, indVar, thisVal)
 
     #just does trilinear interpolation; does NOT try and account/correct
     # for log spacing in independent or dependent variable

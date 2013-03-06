@@ -8,9 +8,6 @@ shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120
 
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
-#print ls220.lookupIndex('rho',1e4)
-#ls220.lookupIndex('temp',10.0)
-ls220.lookupIndex('rho',10000.0)
 ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
 print ls220.query(['logpress','entropy','logenergy'])
 
@@ -22,10 +19,14 @@ print
 
 #ls220.writeRotNSeosfile('EOSisoentropic.dat', {'quantity': 'entropy', 'target': 1.0}, ye=0.15)
 
-ls220.writeRotNSeosfile('EOSisothermal.dat', {'T': 30.0,
+print ls220.setConstQuantityAndBetaEqState({'rho': 1e8}, 'entropy', 25.0 )
+
+ls220.writeRotNSeosfile('EOSisothermalBetaEq.dat', {'T': 30.0,
                                               'rollMid': 14.0,
                                               'rollScale': 0.5,
-                                              'eosTmin': 0.5}, ye=0.15)
+                                              'eosTmin': 0.5}, ye=None)
+print "--------Dur----------"
+print ls220.setBetaEqState({'rho': 1e7, 'temp': 1.0})
 
 exit()
 
