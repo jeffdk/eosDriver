@@ -17,14 +17,14 @@ print
 
 #ls220.setConstQuantityAndBetaEqState({'rho': 1e14}, 'entropy', 1.0)
 
-ls220.writeRotNSeosfile('EOSisoentropic.dat', {'quantity': 'entropy', 'target': 1.0}, ye=0.15)
+#ls220.writeRotNSeosfile('EOSisoentropic.dat', {'quantity': 'entropy', 'target': 1.0}, ye=0.15)
 
 print ls220.setConstQuantityAndBetaEqState({'rho': 1e8}, 'entropy', 25.0 )
 
-ls220.writeRotNSeosfile('EOSisothermal.dat', {'T': 30.0,
+ls220.writeRotNSeosfile('EOSisothermalBetaEq.dat', {'T': 30.0,
                                               'rollMid': 14.0,
                                               'rollScale': 0.5,
-                                              'eosTmin': 0.5}, ye=0.15)
+                                              'eosTmin': 0.5}, ye=None)
 print "--------Dur----------"
 print ls220.setBetaEqState({'rho': 1e7, 'temp': 1.0})
 

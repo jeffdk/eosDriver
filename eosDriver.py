@@ -80,7 +80,7 @@ class eosDriver(object):
         Not setting ye will give results for neutrinoless beta equilibrium.
         NOT IMPLEMENTED YET
         """
-        assert ye is not None, "Must set ye! BetaEq not implemented yet"
+
         isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
         fixedQuantityKeys = ('quantity', 'target')
         assert isinstance(tempPrescription, dict)
@@ -92,9 +92,10 @@ class eosDriver(object):
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
-        tol = 1.0e-8
+        tol = 1.0e-6
 
-        tempOfLog10Rhob = None
+        tempOfLog10Rhob = lambda lr: None
+        yeOfLog10Rhob = lambda ye: ye
 
         if isothermalPrescription:
             print "Using isothermal prescription in writeRotNSeosfile"
@@ -105,12 +106,11 @@ class eosDriver(object):
             tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
                                          * (numpy.tanh((lr - mid)/scale) + 1.0)
         elif fixedQuantityPrescription:
+            print "Using fixed quantity prescription in writeRotNSeosfile"
             quantity = tempPrescription['quantity']
             target = tempPrescription['target']
             if ye is not None:
-
                 def getTemp(t, lr):
-
                     answer = multidimInterp((ye, t, lr),
                                             [self.h5file['ye'][:],
                                              self.h5file['logtemp'],
@@ -121,7 +121,6 @@ class eosDriver(object):
                     return answer
 
                 def solveTemp(lr):
-
                     try:
                         answer = solveRoot(lambda T: getTemp(T, lr),
                                            self.h5file['logtemp'][0],
@@ -132,15 +131,18 @@ class eosDriver(object):
                         answer = self.h5file['logtemp'][0]
                         print "Recovering with lowest table value, answer: %s" % answer
                     return numpy.power(10.0, answer)
-
                 tempOfLog10Rhob = solveTemp
-
+            else:
+                # Otherwise tempOfLog10Rhob will return None,
+                # this will trigger use of setConstQuantityAndBetaEq
+                # in the output loop
+                pass
         log10numberdensityMin = 2.67801536139756E+01
         log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
 
         npoints = 600
 
-        dlogn = (log10numberdensityMax - log10numberdensityMin) / (npoints - 1.0)
+        #dlogn = (log10numberdensityMax - log10numberdensityMin) / (npoints - 1.0)
 
         logns = numpy.linspace(log10numberdensityMin, log10numberdensityMax, npoints)
 
@@ -150,10 +152,17 @@ class eosDriver(object):
             numberdensityCGS = numpy.power(10.0, logn)
             rho_b_CGS = numberdensityCGS * consts.CGS_AMU
             logrho_b_CGS = numpy.log10(rho_b_CGS)
+
             temp = tempOfLog10Rhob(logrho_b_CGS)
-            #print logrho_b_CGS, temp, (numpy.tanh((logrho_b_CGS - mid)/scale) + 1.0)
-            #print 'rho ', rho_b_CGS, ' temp ', temp, ' ye ', ye
-            self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
+
+            if ye is None and temp is not None:
+                self.setBetaEqState({'rho':rho_b_CGS, 'temp': temp})
+            elif ye is None and temp is None:
+                self.setConstQuantityAndBetaEqState({'rho': rho_b_CGS},
+                                                    quantity,
+                                                    target)
+            else:
+                self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
 
             logpress, logeps = self.query(['logpress', 'logenergy'])
 
@@ -206,6 +215,7 @@ class eosDriver(object):
          and then returns ye, temp
         Modifies self.physicalState
         """
+        print "setConstQuantityAndBetaEqState: ", pointDict
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
         assert all([key in self.indVars for key in pointDict.keys()])
@@ -243,9 +253,19 @@ class eosDriver(object):
                                                     self.h5file[otherVarName]],
                                                    self.h5file[quantity][...],
                                                    linInterp, 2) - target
-            currentSolveVar = solveRoot(getSolveVar,
-                                        self.h5file[solveVarName][0],
-                                        self.h5file[solveVarName][-1],(),tol)
+            try:
+                currentSolveVar = solveRoot(getSolveVar,
+                                            self.h5file[solveVarName][0],
+                                            self.h5file[solveVarName][-1],
+                                            (),tol)
+            except ValueError as err:
+                print "Root for log10(T) not bracketed on entire table: " \
+                      + str(err)
+                currentSolveVar = self.h5file['logtemp'][0]
+                print "Recovering with lowest table value, answer: %s" \
+                      % currentSolveVar
+
+
 
             getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
                                               [self.h5file['ye'][:],
