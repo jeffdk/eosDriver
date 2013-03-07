@@ -77,7 +77,7 @@ for ii in range(len(temps)):
         print "Maximum gravitational mass at: rho_c = %15.6E" % outdata[imax,0]
         print "                         rho_c CGS   = %15.6E" % (outdata[imax,0] * inv_rho_gf)
 
-	sfile = open("summary_fixed_entropy_Ye.dat","aw") 
+	sfile = open("summary_fixed_entropy_betaeq.dat","aw") 
 	outstring = "%15.6E %15.6E %15.6E %15.6E %15.6E %15.6E\n"  % \
             (par1,par2,outdata[imax,1],outdata[imax,2],outdata[imax,0]*inv_rho_gf,\
                  outdata[imax,3]*inv_length_gf)
