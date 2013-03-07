@@ -104,20 +104,36 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
         energy_shift = myeos.h5file['energy_shift'][0]
         entropy = par1
 
+        eostablename = "eostable_betaeq_s=%06.3f.dat" % (par1)
+        print eostablename
+        try: 
+            eosin = (numpy.loadtxt(eostablename))
+            eostable[:,0] = eosin[:,1]
+            eostable[:,1] = eosin[:,2]
 
-        for i in range(nrhos):
-            (ye,temp) = \
-                myeos.setConstQuantityAndBetaEqState({'rho': 10.0**logrhos[i]},\
-                                                         'entropy',par1)
+        except IOError:
+            for i in range(nrhos):
+                (ye,temp) = \
+                    myeos.setConstQuantityAndBetaEqState({'rho': 10.0**logrhos[i]},\
+                                                             'entropy',par1)
             
-            (press,eps) = myeos.query(['logpress','logenergy'])
+                (press,eps) = myeos.query(['logpress','logenergy'])
+            
+                # convert units
+                eostable[i,0] = log10(10.0**press * press_gf)
+                eostable[i,1] = log10(10.0**eps * eps_gf)
 
-            # convert units
-            eostable[i,0] = log10(10.0**press * press_gf)
-            eostable[i,1] = log10(10.0**eps * eps_gf)
+                print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
 
-            print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
         energy_shift = energy_shift*eps_gf
+
+        # write EOS table
+        eosfile=open(eostablename,"w")
+        for i in range(len(eostable[:,0])):
+            sline = "%15.6E %15.6E %15.6E\n" % \
+                (logrhos[i],eostable[i,0],eostable[i,1])
+            eosfile.write(sline)
+        eosfile.close()
 
 
     elif(mytype == 'poly_G2_K100'):

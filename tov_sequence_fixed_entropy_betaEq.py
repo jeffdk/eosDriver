@@ -18,8 +18,6 @@ tovinfo.nzones = 40000
 tovinfo.rmax = 50.0
 tovinfo.eostype = 3
 
-yes = [0.1,0.15,0.2]
-
 tmin = 0.5
 tmax = 5.0
 dtemp = 0.1
@@ -29,11 +27,10 @@ for i in range(ntemp):
 	temps[i] = 0.5 + dtemp*i
 
 for ii in range(len(temps)):
-    for jj in range(len(yes)):
-        mytype = "fixed_ye_entropy"
-        par1 = temps[ii]
-        par2 = yes[jj]
-        print "s = %5.2f, Y_e = %5.2f" % (par1,par2)
+	mytype = "fixed_entropy_betaeq"
+	par1 = temps[ii]
+        par2 = 0.0
+        print "s = %5.2f, betaeq" % (par1)
         print "Preparing EOS table: ",mytype
         rhomin = 1.0e6
         rhomax = 8.0e15
@@ -49,7 +46,7 @@ for ii in range(len(temps)):
 
         outdata = tov_sequence(3.0e14,7.0e15,50,tovinfo)
     
-        filename = mytype+"_s%06.3f_Ye%06.3f.dat" % (par1, par2)
+        filename = mytype+"_s%06.3f.dat" % (par1)
         outfile=open(filename,"w")
         for i in range(len(outdata[:,0])):
             line = "%15.6E %15.6E\n" % (outdata[i,3]*inv_length_gf,outdata[i,1])
