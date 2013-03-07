@@ -38,13 +38,17 @@ def tabeos_press_eps(rho,tovinfo):
     irho = 1 + int( (lrho - tovinfo.eoslrhomin) * \
                            tovinfo.eosdlrhoi) 
 
-    out = zeros(2)
-    out[0:1] = (tovinfo.eostable[irho,0:1] - tovinfo.eostable[irho-1,0:1]) \
+    lp = (tovinfo.eostable[irho,0] - tovinfo.eostable[irho-1,0]) \
         * tovinfo.eosdlrhoi * (lrho - tovinfo.logrhos[irho-1]) + \
-        tovinfo.eostable[irho-1,0:1]
+        tovinfo.eostable[irho-1,0]
+
+    leps = (tovinfo.eostable[irho,1] - tovinfo.eostable[irho-1,1]) \
+        * tovinfo.eosdlrhoi * (lrho - tovinfo.logrhos[irho-1]) + \
+        tovinfo.eostable[irho-1,1]
     
-    press = 10.0**out[0]
-    eps = 10.0**out[1] - tovinfo.eosepsshift
+    press = 10.0**lp
+    eps = 10.0**leps - tovinfo.eosepsshift
+
 
     return(press,eps)                  
 
