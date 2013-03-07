@@ -318,6 +318,7 @@ def tov_sequence(rho1,rho2,nsteps,tovinfo):
     # compute TOV solutions        
     for i in range(nsteps):
         rho_c = 10.0**rhos[i]*rho_gf
+        print "working on rho_c = %18.9E" % rho_c
         (tovout,isurf,rad,dr) = tov_integrate(rho_c,tovinfo)
         outdata[i,0] = rho_c
         outdata[i,1] = tovout[isurf,3]
