@@ -11,6 +11,8 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
     eostable = zeros((nrhos,2))
     energy_shift = 0.0
 
+    print mytype
+    
     if(mytype == 'fixed_ye_temp'):
 
         ye = par2
@@ -54,7 +56,7 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
             print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
         energy_shift = energy_shift*eps_gf
 
-    if(mytype == 'fixed_ye_entropy'):
+    elif(mytype == 'fixed_ye_entropy'):
 
         ye = par2
         entropy = par1
