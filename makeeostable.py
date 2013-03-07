@@ -52,7 +52,6 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
             eostable[i,1] = log10(10.0**eps * eps_gf)
 
             print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
-
         energy_shift = energy_shift*eps_gf
 
     if(mytype == 'fixed_ye_entropy'):
@@ -82,6 +81,24 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
 
             print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
 
+        energy_shift = energy_shift*eps_gf
+
+    elif(mytype == 'fixed_entropy_betaeq'):
+
+        energy_shift = myeos.h5file['energy_shift'][0]
+        entropy = par1
+        for i in range(nrhos):
+            (ye,temp) = \
+                myeos.setConstQuantityAndBetaEqState({'rho': 10.0**logrhos[i]},\
+                                                         'entropy',par1)
+            
+            (press,eps) = myeos.query(['logpress','logenergy'])
+
+            # convert units
+            eostable[i,0] = log10(10.0**press * press_gf)
+            eostable[i,1] = log10(10.0**eps * eps_gf)
+
+            print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
         energy_shift = energy_shift*eps_gf
 
 

@@ -314,11 +314,27 @@ class eosDriver(object):
             except ValueError as err:
                 print "Root for log10(T) not bracketed on entire table: " \
                       + str(err)
-                currentSolveVar = self.h5file['logtemp'][0]
-                print "Recovering with lowest table value, answer: %s" \
-                      % currentSolveVar
+                # see if lower or upper temperature bound best
+                logtemp = self.h5file['logtemp']
+                answer1 = multidimInterp((currentYe, logtemp[0], otherVar),
+                                         [self.h5file['ye'][:],
+                                          self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                         self.h5file[quantity][...],
+                                         linInterp, 2) - target
+                answer2 = multidimInterp((currentYe, logtemp[-1], otherVar),
+                                         [self.h5file['ye'][:],
+                                          self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                         self.h5file[quantity][...],
+                                         linInterp, 2) - target
 
-
+                if (abs(answer1) < abs(answer2)):
+                    currentSolveVar = self.h5file['logtemp'][0]
+                    print "Recovering with lowest table value, answer: %s" % currentSolveVar
+                else:
+                    currentSolveVar = self.h5file['logtemp'][-1]
+                    print "Recovering with highest value, answer: %s" % currentSolveVar
 
             getYe = lambda x : multidimInterp((x, currentSolveVar, otherVar),
                                               [self.h5file['ye'][:],
