@@ -94,6 +94,9 @@ def get_rho_eps(press,rho_old,tovinfo):
                 return(rho,eps)
 
             if (counter > 10000):
+                print "press: %18.9E" % press
+                print "rhog_guess: %18.9E" % rho_guess
+                print "rhog_guess2: %18.9E" % rho_guess2
                 print "error in rho(press) iteration"
                 sys.exit()
 
@@ -248,7 +251,12 @@ def tov_integrate(rho_c,tovinfo):
     i = 0
     while (isurf == 0 and i < nzones-1 and not tovinfo.stopflag):
 
-        tovdata[i+1,:] = tov_RK3(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
+        # in smooth part, use RK2
+        if(rhos[i] > 1.0e6): 
+            tovdata[i+1,:] = tov_RK2(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
+        # near the edge, use RK4 for better accuracy
+        else:
+            tovdata[i+1,:] = tov_RK4(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
 
         # check if press below 0
         if(tovdata[i+1,0] <= tovinfo.minpress or tovinfo.stopflag):
@@ -276,7 +284,7 @@ def tov_integrate(rho_c,tovinfo):
         # compute eps
         rhos[i+1] = tovout[i+1,0]
 #        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
-#                 tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
+#                tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
         
         i+=1
 
