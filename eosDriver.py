@@ -206,6 +206,59 @@ class eosDriver(object):
         assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
         assert False, "setConstQuantityState not implemented yet!"
 
+    def getTemperatureFromQuantityTYe(self, pointDict, quantity, target):
+        # assign vars
+        ye = pointDict['ye']
+        xt = numpy.log10(pointDict['temp'])
+        lr = numpy.log10(pointDict['rho'])
+
+        #defines 1D root solver to use in routine
+        solveRoot = scipyOptimize.brentq  # solveRootBisect
+        tol = 1.0e-12
+
+        def getTemp(t, lr):
+            answer = multidimInterp((ye, t, lr),
+                                    [self.h5file['ye'][:],
+                                     self.h5file['logtemp'],
+                                     self.h5file['logrho']],
+                                    self.h5file[quantity][...],
+                                    linInterp, 2) - target
+            return answer
+
+        def solveTemp(lr):
+            try:
+                answer = solveRoot(lambda T: getTemp(T, lr),
+                                   self.h5file['logtemp'][0],
+                                   self.h5file['logtemp'][-1],
+                                   (), tol)
+            except ValueError as err:
+                print "Root for log10(T) not bracketed on entire table! " + str(err)
+                # see if lower or upper temperature bound best
+                logtemp = self.h5file['logtemp']
+                answer1 = multidimInterp((ye, logtemp[0], lr),
+                                         [self.h5file['ye'][:],
+                                          self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                         self.h5file[quantity][...],
+                                         linInterp, 2) - target
+                answer2 = multidimInterp((ye, logtemp[-1], lr),
+                                         [self.h5file['ye'][:],
+                                          self.h5file['logtemp'],
+                                          self.h5file['logrho']],
+                                         self.h5file[quantity][...],
+                                         linInterp, 2) - target
+
+                if (abs(answer1) < abs(answer2)):
+                    answer = self.h5file['logtemp'][0]
+                    print "Recovering with lowest table value, answer: %s" % answer
+                else:
+                    answer = self.h5file['logtemp'][-1]
+                    print "Recovering with highest value, answer: %s" % answer
+
+            return numpy.power(10.0, answer)
+
+        return solveTemp(lr)
+        
     #todo: RIGHT NOW HARD CODED TO BE GIVEN RHO AND FIND T!! FIX
     #     solveVar is T and otherVar is rho!
     def setConstQuantityAndBetaEqState(self, pointDict, quantity, target):
