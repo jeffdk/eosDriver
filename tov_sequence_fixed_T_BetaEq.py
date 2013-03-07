@@ -68,14 +68,14 @@ for ii in range(len(temps)):
         # This has the advantage of excluding puffed-up low-density
         # configurations.
 	# As a second condition, we also demand that the radius be
-	# smaller than 50 Msun
+	# smaller than 20 Msun
         imax = outdata[:,2].argmax() 
-	if(outdata[imax,3] > 50.0):
+	if(outdata[imax,3] > 20.0):
 		imax = 0
 		i = 0
 		mmax = 0.0
 		while(i < len(outdata[:,0])):
-			if(outdata[i,2]>mmax):
+			if(outdata[i,2]>mmax and outdata[i,3]<=20.0):
 				mmax = outdata[imax,2]
 				imax = i
 			i +=1
