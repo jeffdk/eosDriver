@@ -290,8 +290,8 @@ def tov_integrate(rho_c,tovinfo):
 
         # compute eps
         rhos[i+1] = tovout[i+1,0]
-        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
-                tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
+#        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
+#                tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
         
         i+=1
 
