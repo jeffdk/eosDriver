@@ -66,6 +66,7 @@ def get_rho_eps(press,rho_old,tovinfo):
         cont = True
         counter = 0
         fac = 1.0
+        lprec = precision
         while(cont):
             #print counter, rho_guess, rho_old, 10.0**tovinfo.eoslrhomin
             counter += 1
@@ -73,7 +74,7 @@ def get_rho_eps(press,rho_old,tovinfo):
             (xprs2,xeps2) = tabeos_press_eps(rho_guess2,tovinfo)
             (xprs,xeps) = tabeos_press_eps(rho_guess,tovinfo)
             mydpdrho = (xprs2-xprs)/(rho_guess2-rho_guess)
-            if (abs(1.0-xprs/press) < precision) :
+            if (abs(1.0-xprs/press) < lprec) :
                 cont = False
                 rho = rho_guess
                 eps = xeps
@@ -85,6 +86,10 @@ def get_rho_eps(press,rho_old,tovinfo):
 
             if (counter > 100):
                 fac = 0.01
+#                print "count: %d rel error: %18.9E" % (counter, \
+#                                                           abs(1.0-xprs/press))
+            if (counter > 1000):
+                fac = 0.001
 
             if (rho_guess <= 10.0**tovinfo.eoslrhomin):
                 rho_guess = 10.0**tovinfo.eoslrhomin
@@ -93,10 +98,12 @@ def get_rho_eps(press,rho_old,tovinfo):
                 tovinfo.stopflag = True
                 return(rho,eps)
 
-            if (counter > 10000):
+
+            if (counter > 50000):
                 print "press: %18.9E" % press
-                print "rhog_guess: %18.9E" % rho_guess
-                print "rhog_guess2: %18.9E" % rho_guess2
+                print "rho_guess: %18.9E" % (rho_guess*inv_rho_gf)
+                print "rho_guess2: %18.9E" % (rho_guess2*inv_rho_gf)
+                print "rel error: %18.9E" % (abs(1.0-xprs/press))
                 print "error in rho(press) iteration"
                 sys.exit()
 
@@ -252,7 +259,7 @@ def tov_integrate(rho_c,tovinfo):
     while (isurf == 0 and i < nzones-1 and not tovinfo.stopflag):
 
         # in smooth part, use RK2
-        if(rhos[i] > 1.0e6): 
+        if(rhos[i] > 1.0e-6): 
             tovdata[i+1,:] = tov_RK2(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
         # near the edge, use RK4 for better accuracy
         else:
