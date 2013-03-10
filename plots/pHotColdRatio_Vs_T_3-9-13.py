@@ -41,6 +41,7 @@ legend=[]
 #ax = plt.axes()
 #ax.xaxis.set_minor_locator(minorLocator)
 plt.minorticks_on()
+plt.rcParams['legend.labelspacing'] = -0.2
 for i, rho in enumerate(rhos):
     pOfTmin = getP(rho, Tmin, ye)
     oneDFunc = lambda T : getP(rho,T,ye) / pOfTmin - 1.0

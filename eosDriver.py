@@ -103,8 +103,7 @@ class eosDriver(object):
             Tmin = tempPrescription['eosTmin']
             mid = tempPrescription['rollMid']
             scale = tempPrescription['rollScale']
-            tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
-                                         * (numpy.tanh((lr - mid)/scale) + 1.0)
+            tempOfLog10Rhob = getTRollFunc(Tmax, Tmin, mid, scale)
         elif fixedQuantityPrescription:
             print "Using fixed quantity prescription in writeRotNSeosfile"
             quantity = tempPrescription['quantity']
@@ -531,3 +530,8 @@ class eosDriver(object):
         # print numpy.shape(self.h5file[quantity])
         # print self.h5file[quantity][tableIndex]
 
+
+def getTRollFunc(Tmax, Tmin, mid, scale):
+    tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
+                                         * (numpy.tanh((lr - mid)/scale) + 1.0)
+    return tempOfLog10Rhob
