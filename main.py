@@ -1,4 +1,4 @@
-from eosDriver import eosDriver
+from eosDriver import eosDriver, getTRollFunc
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
@@ -11,6 +11,24 @@ ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5
 ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
 print ls220.query(['logpress','entropy','logenergy'])
 
+max = 30.0
+min = 0.01
+
+logrhos = numpy.arange(12.0,16.0,0.05)
+rhos = numpy.power(10.0,logrhos)
+
+midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
+
+labels = []
+for mid, scale in midsAndScales:
+    mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos) )
+    labels.append("mid=" + str(mid) + " scale=" + str(scale))
+mpl.legend(labels, loc =2)
+mpl.ylabel("T (MeV)")
+mpl.xlabel(r"log10(\rho_b CGS)")
+mpl.show()
+
+exit()
 print
 print "---------------"
 print
