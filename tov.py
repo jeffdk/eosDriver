@@ -25,6 +25,8 @@ class tovinfoclass(object):
         self.eosdlrhoi = 0.0
         self.minpress = 0.0
         self.stopflag = False
+        self.it = 0
+        self.temprho = 0.0
 
 # global constants
 ggrav = 1.0
@@ -90,6 +92,10 @@ def get_rho_eps(press,rho_old,tovinfo):
 #                                                           abs(1.0-xprs/press))
             if (counter > 1000):
                 fac = 0.001
+		lprec = lprec*100
+
+            if (counter > 10000):
+		lprec = lprec*1000
 
             if (rho_guess <= 10.0**tovinfo.eoslrhomin):
                 rho_guess = 10.0**tovinfo.eoslrhomin
@@ -116,15 +122,16 @@ def set_grid(rmax,nzones):
     dr = rad[1]-rad[0]
     return (rad,dr)
 
-def tov_RHS(r,data,tovinfo,rho_old):
+def tov_RHS(r,data,tovinfo):
 
     rhs = zeros(9)
 
     mass = data[1]
     press = max(data[0],tovinfo.minpress)
 
-    (rho,eps) = get_rho_eps(press,rho_old,tovinfo)
+    (rho,eps) = get_rho_eps(press,tovinfo.temprho,tovinfo)
 #    print r, press, rho_old, rho, eps
+    tovinfo.temprho = rho
 
     u = rho * (1.0 + eps/clite**2)
 
@@ -164,50 +171,52 @@ def tov_RHS(r,data,tovinfo,rho_old):
 
     return rhs
 
-def tov_RK2(old_data,r,dr,tovinfo,rho_old):
+def tov_RK2(old_data,r,dr,tovinfo):
 
     ktemp = zeros((9,2))
-    ktemp[:,0] = dr*tov_RHS(r,old_data,tovinfo,rho_old)
+    ktemp[:,0] = dr*tov_RHS(r,old_data,tovinfo)
     ktemp[:,1] = dr*\
-        tov_RHS(r+0.5*dr,old_data+0.5*ktemp[:,0],tovinfo,rho_old)
+        tov_RHS(r+0.5*dr,old_data+0.5*ktemp[:,0],tovinfo)
 
     return old_data + ktemp[:,1]
     
-def tov_RK3(old_data,r,dr,tovinfo,rho_old):
+def tov_RK3(old_data,r,dr,tovinfo):
     ktemp = zeros((9,3))
 
     # first step
-    ktemp[:,0] = dr * tov_RHS(r,old_data,tovinfo,rho_old)
+    ktemp[:,0] = dr * tov_RHS(r,old_data,tovinfo)
 
     # second_step
     ktemp[:,1] = dr * tov_RHS(r + 0.5*dr, \
-                                  old_data + 0.5*ktemp[:,0],tovinfo,rho_old)
+                                  old_data + 0.5*ktemp[:,0],tovinfo)
 
     # third step
     ktemp[:,2] = dr *\
         tov_RHS(r + dr, old_data - ktemp[:,0] + 2.0*ktemp[:,1],\
-                    tovinfo,rho_old)
+                    tovinfo)
 
     return old_data + \
         1.0/6.0 * (ktemp[:,0] + 4.0*ktemp[:,1] + ktemp[:,2])
 
-def tov_RK4(old_data,r,dr,tovinfo,rho_old):
+def tov_RK4(old_data,r,dr,tovinfo):
     ktemp = zeros((9,4))
 
     # first step
-    ktemp[:,0] = dr * tov_RHS(r,old_data,tovinfo,rho_old)
+    ktemp[:,0] = dr * tov_RHS(r,old_data,tovinfo)
 
     # second_step
     ktemp[:,1] = dr * \
-        tov_RHS(r + 0.5*dr, old_data + 0.5*ktemp[:,0],tovinfo,rho_old)
+        tov_RHS(r + 0.5*dr, old_data + 0.5*ktemp[:,0],tovinfo)
 
     # third_step
     ktemp[:,2] = dr * \
-        tov_RHS(r + 0.5*dr, old_data + 0.5*ktemp[:,1],tovinfo,rho_old)
+        tov_RHS(r + 0.5*dr, old_data + 0.5*ktemp[:,1],tovinfo)
+
 
     # fourth step
     ktemp[:,3] = dr * \
-        tov_RHS(r + dr, old_data + ktemp[:,2],tovinfo,rho_old)
+        tov_RHS(r + dr, old_data + ktemp[:,2],tovinfo)
+
 
     return old_data + \
         1.0/6.0 * (ktemp[:,0] + 2*ktemp[:,1] + 2*ktemp[:,2] +\
@@ -251,6 +260,7 @@ def tov_integrate(rho_c,tovinfo):
 
     isurf = 0
     rhos[0] = rho_c
+    tovinfo.temprho = rho_c
     tovout[0,0] = rho_c
     tovout[0,1] = tovdata[0,0]
     tovout[0,2] = rhos[0]
@@ -258,12 +268,14 @@ def tov_integrate(rho_c,tovinfo):
     i = 0
     while (isurf == 0 and i < nzones-1 and not tovinfo.stopflag):
 
+        tovinfo.it = i
+
         # in smooth part, use RK2
         if(rhos[i] > 1.0e-6): 
-            tovdata[i+1,:] = tov_RK2(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
+            tovdata[i+1,:] = tov_RK2(tovdata[i,:],rad[i],dr,tovinfo)
         # near the edge, use RK4 for better accuracy
         else:
-            tovdata[i+1,:] = tov_RK4(tovdata[i,:],rad[i],dr,tovinfo,rhos[i])
+            tovdata[i+1,:] = tov_RK4(tovdata[i,:],rad[i],dr,tovinfo)
 
         # check if press below 0
         if(tovdata[i+1,0] <= tovinfo.minpress or tovinfo.stopflag):
@@ -290,8 +302,9 @@ def tov_integrate(rho_c,tovinfo):
 
         # compute eps
         rhos[i+1] = tovout[i+1,0]
+        tovinfo.temprho = rhos[i+1]
 #        print "%d %15.6E %15.6E %15.6E %15.6E" % (i,rad[i+1],\
-#                tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
+#                                                      tovout[i,3],rhos[i+1]*inv_rho_gf,tovdata[i+1,0])
         
         i+=1
 

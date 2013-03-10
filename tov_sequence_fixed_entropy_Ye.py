@@ -14,19 +14,19 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 40000
+tovinfo.nzones = 50000
 tovinfo.rmax = 50.0
 tovinfo.eostype = 3
 
 yes = [0.1,0.15,0.2]
 
-tmin = 0.5
+tmin = 3.6
 tmax = 5.0
 dtemp = 0.1
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
 for i in range(ntemp):
-	temps[i] = 0.5 + dtemp*i
+	temps[i] = tmin + dtemp*i
 
 for ii in range(len(temps)):
     for jj in range(len(yes)):

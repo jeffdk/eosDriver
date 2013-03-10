@@ -18,13 +18,13 @@ tovinfo.nzones = 40000
 tovinfo.rmax = 50.0
 tovinfo.eostype = 3
 
-tmin = 0.5
+tmin = 3.9
 tmax = 5.0
 dtemp = 0.1
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
 for i in range(ntemp):
-	temps[i] = 0.5 + dtemp*i
+	temps[i] = tmin + dtemp*i
 
 for ii in range(len(temps)):
 	mytype = "fixed_entropy_betaeq"
