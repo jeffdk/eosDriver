@@ -6,6 +6,7 @@
 
 Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 """
+import ast
 import h5py
 import math
 import numpy
@@ -61,7 +62,7 @@ class eosDriver(object):
 
     def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
         """
-        Two temperature prescriptions available:
+        Three temperature prescriptions available:
         1) Fix a quantity to determine T
          {'quantity':  a dependent variable in the EOS table,
           'target':    the target value you wish to fix 'quantity to'}
@@ -74,6 +75,12 @@ class eosDriver(object):
           'eosTmin': minimum temperature (MeV) in roll-off prescription }
           E.g: {'T': 30.0, 'rollMid': 14.0, 'rollScale': 0.5, 'eosTmin': 0.5}
 
+        3) ManualTofLogRho
+           Sets temperature using function specified.
+           {'funcTofLogRho': string specifying python function to use
+              must be valid python function that exists in eosDriver.py
+              Is read using python's ast library! }
+
         Please only set one or the other of these; doing otherwise may result
         in UNDEFINED BEHAVIOR
 
@@ -83,12 +90,18 @@ class eosDriver(object):
 
         isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
         fixedQuantityKeys = ('quantity', 'target')
+        manualTofLogRhoKeys = ('funcTofLogRho',)
         assert isinstance(tempPrescription, dict)
         isothermalPrescription = all([key in tempPrescription.keys()
                                       for key in isothermalKeys])
         fixedQuantityPrescription = all([key in tempPrescription.keys()
                                          for key in fixedQuantityKeys])
+        manualTofLogRhoPrescription = all([key in tempPrescription.keys()
+                                           for key in manualTofLogRhoKeys])
         assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
+        assert not(manualTofLogRhoPrescription and fixedQuantityPrescription), "See docstring!"
+        assert not(manualTofLogRhoPrescription and isothermalPrescription), "See docstring!"
+
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
@@ -104,6 +117,8 @@ class eosDriver(object):
             mid = tempPrescription['rollMid']
             scale = tempPrescription['rollScale']
             tempOfLog10Rhob = getTRollFunc(Tmax, Tmin, mid, scale)
+        elif manualTofLogRhoPrescription:
+            tempOfLog10Rhob = ast.literal_eval(tempPrescription['funcTofLogRho'])
         elif fixedQuantityPrescription:
             print "Using fixed quantity prescription in writeRotNSeosfile"
             quantity = tempPrescription['quantity']
@@ -532,6 +547,20 @@ class eosDriver(object):
 
 
 def getTRollFunc(Tmax, Tmin, mid, scale):
+    """
+    Returns a tanh step function with a minimum of Tmin,
+     a maximum of Tmax, a halfway point at mid and
+     the transition e-folding length of scale
+    """
     tempOfLog10Rhob = lambda lr: Tmin + (Tmax - Tmin) / 2.0 \
                                          * (numpy.tanh((lr - mid)/scale) + 1.0)
     return tempOfLog10Rhob
+
+def kentaDataTofLogRhoFit1():
+    """
+    Returns a function that is parametrized fit for T(logrho)
+     of Kenta's Shen135135 simulation data.
+    """
+    func = lambda lr: getTRollFunc(20.0, 0.0, 14.25, .25)(lr) \
+                      + getTRollFunc(10.0, 0.01, 11.5,.25)(lr)
+    return func

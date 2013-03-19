@@ -1,4 +1,4 @@
-from eosDriver import eosDriver, getTRollFunc
+from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
@@ -14,18 +14,19 @@ print ls220.query(['logpress','entropy','logenergy'])
 max = 30.0
 min = 0.01
 
-logrhos = numpy.arange(12.0,16.0,0.05)
+logrhos = numpy.arange(10.0,16.0,0.05)
 rhos = numpy.power(10.0,logrhos)
 
 midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
-
+#ls220.writeRotNSeosfile("test.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit1'}, 0.15)
 labels = []
 for mid, scale in midsAndScales:
-    mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos) )
+    mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
+              logrhos,  kentaDataTofLogRhoFit1()(logrhos))
     labels.append("mid=" + str(mid) + " scale=" + str(scale))
 mpl.legend(labels, loc =2)
 mpl.ylabel("T (MeV)")
-mpl.xlabel(r"log10(\rho_b CGS)")
+mpl.xlabel(r"log10($\rho_b$ CGS)")
 mpl.show()
 
 exit()
