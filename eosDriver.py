@@ -79,7 +79,7 @@ class eosDriver(object):
            Sets temperature using function specified.
            {'funcTofLogRho': string specifying python function to use
               must be valid python function that exists in eosDriver.py
-              Is read using python's ast library! }
+              and is added to databaseOfManualFunctions! }
 
         Please only set one or the other of these; doing otherwise may result
         in UNDEFINED BEHAVIOR
@@ -87,7 +87,10 @@ class eosDriver(object):
         Not setting ye will give results for neutrinoless beta equilibrium.
         NOT IMPLEMENTED YET
         """
-
+        databaseOfManualFunctions = dict([(f.__name__, f) for f in
+                                          (kentaDataTofLogRhoFit1,
+                                          )
+                                         ])
         isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
         fixedQuantityKeys = ('quantity', 'target')
         manualTofLogRhoKeys = ('funcTofLogRho',)
@@ -118,7 +121,11 @@ class eosDriver(object):
             scale = tempPrescription['rollScale']
             tempOfLog10Rhob = getTRollFunc(Tmax, Tmin, mid, scale)
         elif manualTofLogRhoPrescription:
-            tempOfLog10Rhob = ast.literal_eval(tempPrescription['funcTofLogRho'])
+            funcName = tempPrescription['funcTofLogRho']
+            assert funcName in databaseOfManualFunctions, \
+                "funcName for manualTofLogRhoPrescription not recognized! If you have written it " \
+                "be sure to add it to databaseOfManualFunctions at the start of writeRotNSeosfile"
+            tempOfLog10Rhob = databaseOfManualFunctions[funcName]()
         elif fixedQuantityPrescription:
             print "Using fixed quantity prescription in writeRotNSeosfile"
             quantity = tempPrescription['quantity']
