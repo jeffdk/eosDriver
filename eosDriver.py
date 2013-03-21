@@ -89,6 +89,7 @@ class eosDriver(object):
         """
         databaseOfManualFunctions = dict([(f.__name__, f) for f in
                                           (kentaDataTofLogRhoFit1,
+                                           kentaDataTofLogRhoFit2
                                           )
                                          ])
         isothermalKeys = ('T', 'rollMid', 'rollScale', 'eosTmin')
@@ -570,4 +571,14 @@ def kentaDataTofLogRhoFit1():
     """
     func = lambda lr: getTRollFunc(20.0, 0.0, 14.25, .25)(lr) \
                       + getTRollFunc(10.0, 0.01, 11.5,.25)(lr)
+    return func
+
+def kentaDataTofLogRhoFit2():
+    """
+    Returns a function that is parametrized fit for T(logrho)
+     of Kenta's Shen135135 simulation data.
+     EXCEPT that the temperature plateau has been cooled to 5 MeV
+    """
+    func = lambda lr: getTRollFunc(25.0, 0.0, 14.25, .25)(lr) \
+                      + getTRollFunc(5.0, 0.01, 11.5,.25)(lr)
     return func
