@@ -569,8 +569,8 @@ def kentaDataTofLogRhoFit1():
     Returns a function that is parametrized fit for T(logrho)
      of Kenta's Shen135135 simulation data.
     """
-    func = lambda lr: getTRollFunc(20.0, 0.0, 14.25, .25)(lr) \
-                      + getTRollFunc(10.0, 0.01, 11.5,.25)(lr)
+    func = lambda lr: getTRollFunc(20.0, 0.0, 14.25 - 0.07, .25)(lr) \
+                    + getTRollFunc(10.0, 0.01, 11.5, .25)(lr)
     return func
 
 def kentaDataTofLogRhoFit2():
@@ -579,6 +579,6 @@ def kentaDataTofLogRhoFit2():
      of Kenta's Shen135135 simulation data.
      EXCEPT that the temperature plateau has been cooled to 5 MeV
     """
-    func = lambda lr: getTRollFunc(25.0, 0.0, 14.25, .25)(lr) \
-                      + getTRollFunc(5.0, 0.01, 11.5,.25)(lr)
+    func = lambda lr: getTRollFunc(25.0, 0.0, 14.1875 - 0.07, .3125)(lr) \
+                    + getTRollFunc(5.0, 0.01, 11.5, .25)(lr)
     return func
