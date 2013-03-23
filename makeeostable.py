@@ -4,7 +4,7 @@ from numpy import linspace, zeros, log10
 from eosDriver import eosDriver
 import numpy
 
-def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
+def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
     assert isinstance(myeos, eosDriver)
 
     logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
@@ -18,6 +18,8 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
         ye = par2
         temp = par1
         
+        eostablename = myeosname+"_eostable_Ye=%06.3f_T=%06.3f.dat" % \
+            (par2,par1)
         energy_shift = myeos.h5file['energy_shift'][0]
         
         for i in range(nrhos):
@@ -39,7 +41,19 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,mytype,par1,par2):
 
         energy_shift = energy_shift*eps_gf
 
+        # write EOS table
+        eosfile=open(eostablename,"w")
+        esstring = "%18.9E\n" % (energy_shift/eps_gf)
+        eosfile.write(esstring)
+        for i in range(len(eostable[:,0])):
+            sline = "%15.6E %15.6E %15.6E\n" % \
+                (logrhos[i],eostable[i,0],eostable[i,1])
+            eosfile.write(sline)
+        eosfile.close()
+
     elif(mytype == 'fixed_temp_betaeq'):
+
+        eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par2,par1)
 
         energy_shift = myeos.h5file['energy_shift'][0]
         temp = par1
