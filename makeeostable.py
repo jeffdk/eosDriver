@@ -53,7 +53,7 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
     elif(mytype == 'fixed_temp_betaeq'):
 
-        eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par2,par1)
+        eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par2)
 
         energy_shift = myeos.h5file['energy_shift'][0]
         temp = par1
@@ -69,6 +69,18 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
             print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
         energy_shift = energy_shift*eps_gf
+
+        # write EOS table
+        eosfile=open(eostablename,"w")
+        esstring = "%18.9E\n" % (energy_shift/eps_gf)
+        eosfile.write(esstring)
+        for i in range(len(eostable[:,0])):
+            sline = "%15.6E %15.6E %15.6E\n" % \
+                (logrhos[i],eostable[i,0],eostable[i,1])
+            eosfile.write(sline)
+        eosfile.close()
+
+
 
     elif(mytype == 'fixed_ye_entropy'):
 

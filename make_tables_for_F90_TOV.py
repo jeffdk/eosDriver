@@ -51,7 +51,21 @@ def fixed_ye_temp(EOSlist,temps,yes):
                         mytype,par1,par2)
 
         del myeos
+  
+def fixed_temp_betaeq(EOSlist,temps,yes):
+	for ieos in range(len(EOSlist)):
+		myeos = eosDriver(EOSlist[ieos][1])
+		for ii in range(len(temps)):
+			mytype = "fixed_temp_betaeq"
+			par1 = temps[ii]
+			par2 = 0.0
+			print "T = %5.2f, betaeq" % (par1)
+			print "Preparing EOS table: ",EOSlist[ieos][0], mytype
+			makeeostable.makeeostable(\
+				nrhos,rhomin,rhomax,myeos,EOSlist[ieos][0],\
+					mytype,par1,par2)
+
     
-    
-fixed_ye_temp(EOSlist,temps,yes)
+# fixed_ye_temp(EOSlist,temps,yes)
+fixed_temp_betaeq(EOSlist,temps,yes)
 
