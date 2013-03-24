@@ -19,15 +19,18 @@ program mytov
   real*8 :: buff1,buff2
 
   character(len=512) :: outfilename
-  character(len=512) :: eosfilename
+  character(len=128) :: eosfilename
+
 
   allocate(output_rho(N))
   allocate(output_mgrav(N))
   allocate(output_press(N))
 
-  eosfilename = "eostable_ye=00.150_s=00.500.dat"
+  call getarg(1, eosfilename)
+!  eosfilename = "eostable_ye=00.150_s=00.500.dat"
   outfilename = "tov_sequence_"//trim(adjustl(eosfilename))
 
+  write(6,*) eosfilename
   write(6,*) outfilename
 
   call readtable(trim(adjustl(eosfilename)))

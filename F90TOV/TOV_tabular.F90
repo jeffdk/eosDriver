@@ -260,6 +260,7 @@ contains
        counter = counter + 1
        rho_guess2 = rho_guess*1.0001d0
 !       write(*,*) counter, rho_guess, xpress,press_guess
+
        call tabeos_press_eps(rho_guess2,press_guess2,leps)
        call tabeos_press_eps(rho_guess,press_guess,leps)
 
@@ -296,11 +297,16 @@ contains
 !       write(6,"(i8,1P10E15.6)") counter,abs(1.0d0-press_guess/xpress),&
 !            press_guess,xpress,rho_guess, (xpress-press_guess)/mydpdrho, precision
        
-       if (rho_guess.lt.eos_rhomin.or.counter.gt.50000) then
-          write(6,*) "problem in rho(press)"
-          stop "fucked up"
+       if (rho_guess.le.eos_rhomin) then
+          cont = .false.
+          xrho = eos_rhomin
           flag_return = 1
-          return
+       endif
+
+       if(counter.gt.50000) then
+          write(6,*) "problem in rho(press)"
+          write(6,"(1P10E15.6)") rho_guess,abs(1.0d0-press_guess/xpress),lprec,eos_rhomin
+          stop "fucked up"
        endif
        
     enddo
@@ -451,6 +457,7 @@ contains
     
     write(6,*) "Read EOS table ", trim(adjustl(tablename))
     write(6,"(A10,i7,A10,1P10E15.6)") "nrho: ",neos," rho_min: ",eos_rhomin
+    write(6,"(A10,1P10E15.6)") "eps shift", energy_shift
 
   end subroutine readtable
 
@@ -465,6 +472,10 @@ contains
     lrho = dlog10(rho)
     irho = 2 + int( (lrho - eos_lrhomin - 1.0d-10) * eos_drhoi )
 
+    if(irho < 2) then
+       write(6,"(i8,1P10E15.6)") irho,lrho,rho
+       stop "outside table bounds!"
+    endif
     if(irho.gt.neos) stop "rho > rho_max"
 
     lprs = (eos_lprs(irho) - eos_lprs(irho-1)) * eos_drhoi * &
