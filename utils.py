@@ -71,9 +71,9 @@ def multidimInterpWork(point, tablePoints, tableData, interpolator):
 
     pass
 
-class SolveRootError(Exception):
-    pass
-class BracketingError(SolveRootError):
+#Scipy root solvers throw value error when bracketing problem,
+# so derive BracketingError from Value error
+class BracketingError(ValueError):
     def __init__(self,x0,x1,fx0,fx1,func):
         self.message = " \n Root not bracketed between x0 = %s  x1 = %s" % (x0,x1)
         self.message += "\n f(x0) = %s   f(x1) = %s" % (fx0,fx1)
@@ -82,10 +82,12 @@ class BracketingError(SolveRootError):
     def __str__(self):
         return self.message
 
-def solveRootBisect(func, x0, x1, relTol=1.0e-8, maxIterations=40):
+def solveRootBisect(func, x0, x1, optionalParams=(), relTol=1.0e-8, maxIterations=40):
     """
     Finds a root of func between x0 and x1
     to relative tolerance relTol
+    Optional parameters is not implemented yet but included so the function
+    arguments match that of scipy's root solvers.
     """
     if func(x0) * func(x1) > 0.:
         raise BracketingError(x0,x1,func(x0),func(x1),func)

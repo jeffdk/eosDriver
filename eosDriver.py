@@ -11,8 +11,8 @@ import h5py
 import math
 import numpy
 import consts
-from utils import multidimInterp, linInterp, solveRootBisect,\
-    BracketingError, relativeError, lookupIndexBisect
+from utils import multidimInterp, linInterp, solveRootBisect, \
+    relativeError, lookupIndexBisect
 import scipy.optimize as scipyOptimize
 
 
@@ -127,6 +127,7 @@ class eosDriver(object):
                 "funcName for manualTofLogRhoPrescription not recognized! If you have written it " \
                 "be sure to add it to databaseOfManualFunctions at the start of writeRotNSeosfile"
             tempOfLog10Rhob = databaseOfManualFunctions[funcName]()
+            print "Using manual prescription %s in writeRotNSeosfile" % funcName
         elif fixedQuantityPrescription:
             print "Using fixed quantity prescription in writeRotNSeosfile"
             quantity = tempPrescription['quantity']
@@ -201,6 +202,12 @@ class eosDriver(object):
                                                                  logTotalEnergyDensity,
                                                                  logpress))
 
+    def solveForQuantity(self, pointDict, quantity, target, bounds=None):
+        """
+        Solve for independent variable left out of pointDict so that
+        quantity=target.
+        If bounds for root solve not supplied, will try the table max and min.
+        """
 
     def setState(self, pointDict):
         """
@@ -369,11 +376,6 @@ class eosDriver(object):
                 currentYe = solveRoot(getYe,
                                       self.h5file['ye'][0],
                                       self.h5file['ye'][-1], (), tol)
-            except BracketingError as err:
-                print "Root for ye not bracketed on entire table!" + str(err)
-                currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
-                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
-            #ValueError is thrown by scipy's brentq
             except ValueError as err:
                 print "Error in scipy root solver solving for ye: ", str(err)
                 currentYe = self.findYeOfMinAbsMunu((currentSolveVar, otherVar))
@@ -426,7 +428,6 @@ class eosDriver(object):
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
 
-
         for key, value in pointDict.items():
             if key in self.logVars:
                 pointDict['log' + key] = numpy.log10(value)
@@ -447,11 +448,6 @@ class eosDriver(object):
             currentYe = solveRoot(getYe,
                                   self.h5file['ye'][0],
                                   self.h5file['ye'][-1], (), tol)
-        except BracketingError as err:
-            print "Root for ye not bracketed on entire table!" + str(err)
-            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
-            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
-        #ValueError is thrown by scipy's brentq
         except ValueError as err:
             print "Error in scipy root solver solving for ye: ", str(err)
             currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
