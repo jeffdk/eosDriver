@@ -1,4 +1,5 @@
-from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1
+from consts import CGS_C
+from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1, kentaDataTofLogRhoFit2
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
@@ -8,7 +9,10 @@ shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120
 
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
-ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
+point = {'rho': 1e14, 'ye': .1, 'temp': 0.5}
+
+
+ls220.setState(point)
 print ls220.query(['logpress','entropy','logenergy'])
 
 max = 30.0
@@ -21,7 +25,6 @@ midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
 #ls220.writeRotNSeosfile("test2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit2'}, 0.15)
 labels = []
 
-
 for mid, scale in midsAndScales:
     mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
               logrhos,  kentaDataTofLogRhoFit1()(logrhos))
@@ -31,6 +34,28 @@ mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
 
+#print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
+#print ls220.solveForQuantity({'rho': 1e15, 'ye': 0.1}, 'entropy', 1., bounds=None)
+ye = 0.1
+for ed in [3.e14,1.e15,2.e15]:
+    led = numpy.log10(ed)
+
+    tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit2()(x))
+    tempFunc = lambda x: -2.0
+    tempFunc = lambda x: numpy.log10(getTRollFunc(20., .01, 13.93,.25)(x))
+    edFunc = lambda x, q: numpy.power(10.0,x) * (1.0 + (numpy.power(10.0, q) - shen.energy_shift)/ CGS_C**2)
+    result = shen.solveForQuantity({'logtemp': 1., 'ye': ye}, 'logenergy', ed,
+                                   bounds=(11.,16.),
+                                   pointAsFunctionOfSolveVar=tempFunc,
+                                   function=edFunc)
+    shen.setState({'logtemp': tempFunc(result), 'ye': ye, 'logrho': result})
+    eps = (numpy.power(10.0, shen.query('logenergy')) - shen.energy_shift) / CGS_C**2
+
+    print ed,"\t", numpy.power(10.0, result)
+    print "\t", numpy.power(10.0, result)* (1.0 + eps)
+exit()
+#print ls220.findIndVarOfMinAbsQuantity('ye', (0.0, 7), 'munu')
+#exit()
 
 print
 print "---------------"
@@ -41,7 +66,7 @@ print
 #ls220.writeRotNSeosfile('EOSisoentropic.dat', {'quantity': 'entropy', 'target': 1.0}, ye=0.15)
 
 print ls220.setConstQuantityAndBetaEqState({'rho': 1e8}, 'entropy', 25.0 )
-
+print ls220.query(['entropy','logpress','logenergy'])
 ls220.writeRotNSeosfile('EOSisothermalBetaEq.dat', {'T': 30.0,
                                               'rollMid': 14.0,
                                               'rollScale': 0.5,

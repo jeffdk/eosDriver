@@ -20,20 +20,24 @@ class eosDriver(object):
 
     valuesDict = None
     # Independent variables; assumes these are the independent variables in the
-    # table.  Routines check to see if they are stored as 'log' + var
+    # table.  Routines check input to see if variables are non-log10'd
     # independent variables are REORDERED in __init__ so that they
     # correspond to the correct ordering of the dependent variable table axes.
-    indVars = ('rho', 'ye', 'temp')
+    indVars = ('ye', 'logtemp', 'logrho')
     # Physical state contains the  values of the independent variables in the
     # order determined in __init__
     physicalState = (None, None, None)
 
+    #independent variables stored as logvars in table
+    indLogVars =('rho', 'temp')
     logVars = ('energy', 'press', 'rho', 'temp')
 
     h5file = None
 
     #dependent variables table shape; set as shape of 'logpress'
+    #refactor to remove tableShape and only have tableShapeDict!
     tableShape = None
+    tableShapeDict = None
 
     #energy shift is constant value added to all values of 'energy' in the table
     #so that 'logenergy' is always positive
@@ -50,15 +54,32 @@ class eosDriver(object):
         #print self.energy_shift
         #Determine the ordering of independent variable axes by identifying with
         # the number of points for that indVar axis
-        newOrdering = [None for unused in self.indVars]
+        newOrdering = [None for _ in self.indVars]
         for indVar in self.indVars:
-            key = 'points' + indVar
+            key = 'points' + indVar.split('log')[-1]
             points = self.h5file[key][0]
             for ithAxis, ithAxesPoints in enumerate(self.tableShape):
                 if ithAxesPoints == points:
                     newOrdering[ithAxis] = indVar
                     break
         self.indVars = tuple(newOrdering)
+        self.tableShapeDict = dict([(indVar, self.tableShape[i])
+                                    for i, indVar in enumerate(self.indVars)])
+
+    def validatePointDict(self, pointDict):
+        """
+        Checks if points in pointDict are valid indVars.
+        Converts non-log10'd vars to logvars
+        !! MUTATES pointDict !!
+        """
+        assert isinstance(pointDict, dict)
+        for key in pointDict.keys():
+            assert key in self.indVars or key in self.indLogVars, \
+                "'%s' of your pointDict is not a valid independent variable!"  % key
+            if key in self.indLogVars:
+                pointDict.update({'log' + key: numpy.log10(pointDict[key])})
+                del pointDict[key]
+
 
     def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
         """
@@ -202,12 +223,154 @@ class eosDriver(object):
                                                                  logTotalEnergyDensity,
                                                                  logpress))
 
-    def solveForQuantity(self, pointDict, quantity, target, bounds=None):
+    #todo: add option for picking different recovery methods
+    def solveForQuantity(self, pointDict, quantity, target, bounds=None,
+                         function=(lambda x,q: q),
+                         pointAsFunctionOfSolveVar=lambda x: None,
+                         tol=1.e-6):
         """
         Solve for independent variable left out of pointDict so that
         quantity=target.
         If bounds for root solve not supplied, will try the table max and min.
+        Function lets the user specify an arbitrary function of the independent
+        variable, x, and the quantity q as what we are solving for.
+        Defaults to simply the quantity.
         """
+        assert isinstance(pointDict, dict)
+        self.validatePointDict(pointDict)
+        assert len(pointDict) < 3, "Can't solve anything if you've specified more than 2 indVars!"
+        assert len(pointDict) > 1, "Solve is under-determined with less than 2 indVars!"
+
+        solveRoot = scipyOptimize.brentq
+        solveRoot = solveRootBisect
+        solveVar = [indVar for indVar in self.indVars if indVar not in pointDict][0]
+
+        #NOTE POINTASFUNCTIONOFSOLVERDICT MUST BE IN SAME FORMAT AS POINTDICT
+        #TODO FIX THIS HARD CODING FUCK FUKC FUCK
+        if pointAsFunctionOfSolveVar(14.0) is None:
+            val = pointDict['logtemp']
+            pointAsFunctionOfSolveVar = lambda x: val
+        #todo: add some good asserts for bounds
+        #NOTE BOUNDS MUST BE IN LOGVAR!!!
+        if bounds is not None:
+            boundMin = bounds[0]
+            boundMax = bounds[1]
+        else:
+            boundMin = self.h5file[solveVar][0]
+            boundMax = self.h5file[solveVar][-1]
+
+        indVarsTable = self.getIndVarsTable()
+
+        def quantityOfSolveVar(x):
+            #Here we construct the point to interpolate at, but we
+            # must do it carefully since we don't know apriori what
+            # solveVar is
+            point = []
+            #todo factor this for out of quantityOfSolveVar
+            for indVar in self.indVars:
+                if indVar not in pointDict:
+                    #print "NOT", indVar
+                    value = x
+                else:
+                    value = pointDict[indVar]
+                    if indVar == 'logtemp':
+                        value = pointAsFunctionOfSolveVar(x)
+                #print indVar, value
+                point.append(value)
+            point = tuple(point)
+            #print point
+            #print indVarsTable
+            answer = function(x, multidimInterp(point, indVarsTable,
+                                                self.h5file[quantity][...],
+                                                linInterp, 2)
+                              ) - target
+            return answer
+
+        try:
+            answer = solveRoot(quantityOfSolveVar, boundMin, boundMax, (), tol)
+        except ValueError as err:
+            print "Error in root solver solving for %s: " % solveVar, str(err)
+            answer = self.findIndVarOfMinAbsQuantity(solveVar,
+                                                     self.pointFromDict(pointDict),
+                                                     quantity)
+            print "Recovering with findIndVarOfMinAbsQuantity, answer: %s" % answer
+        return answer
+
+    def tableIndexer(self, indVar, i):
+        """
+        Given an indVar and an index for that indVar returns
+        a numpy array slice tuple which indexes the slice for
+        the dependent variable table with indVar fixed to index i
+        """
+        assert indVar in self.indVars, "Input indVar %s is not a valid indVar!" % indVar
+        assert i >= 0, "Index in tableIndexer, %s, is less than zero. Dummy." % i
+        assert i < self.tableShapeDict[indVar], \
+            "Index in tableIndexer, %s, is greater than table extends in indVar direction!" % i
+
+        result = []
+        for var in self.indVars:
+            if indVar == var:
+                result.append(i)
+            else:
+                result.append(slice(None))
+        return tuple(result)
+
+    def getIndVarsTable(self, omitTheseIndVars=()):
+        """
+        Returns a table where the each entry is the list of table point
+        values for each indVar.  Ordered list.
+        """
+        assert all([indVar in self.indVars for indVar in omitTheseIndVars]), \
+            "Can't omit an indVar that is not a proper indVar!"
+
+        result = []
+        for indVar in self.indVars:
+            if indVar not in omitTheseIndVars:
+                result.append(self.h5file[indVar])
+        #returning a tuple prevents inadvertent mutating of the result
+        return tuple(result)
+
+    def pointFromDict(self, pointDict):
+        """
+        Returns tuple point of indVars in their CORRECT ORDERING
+        given a pointDict.  Also DELOGS logvars
+        """
+        assert isinstance(pointDict, dict)
+        assert all([key in self.indVars for key in pointDict.keys()])
+
+        result = []
+        for indVar in self.indVars:
+            if indVar in pointDict:
+                if indVar in self.indLogVars:
+                    result.append(numpy.log10(pointDict[indVar]))
+                else:
+                    result.append(pointDict[indVar])
+
+        return tuple(result)
+
+    def findIndVarOfMinAbsQuantity(self, indVar, point, quantity):
+        """
+        Given an independent variable indVar,
+         The values of the other independent variables as point,
+         and a dependent variable quantity,
+        Find for what value of indVar's table grid-points is
+        quantity closest to zero.  Uses simple sequential search.
+        """
+        assert indVar in self.indVars, "Input indVar %s is not a valid indVar!" % indVar
+
+        indVarsTable = self.getIndVarsTable(omitTheseIndVars=(indVar,))
+        closestIndVar = None
+        closestQuantity = 1.0e300
+
+        for i, var in enumerate(self.h5file[indVar][:]):
+            index = self.tableIndexer(indVar, i)
+            thisQuantity = multidimInterp(point, indVarsTable,
+                                          self.h5file[quantity][index],
+                                          linInterp, 2)
+            if abs(thisQuantity) < closestQuantity:
+                closestIndVar = var
+                closestQuantity = abs(thisQuantity)
+        return closestIndVar
 
     def setState(self, pointDict):
         """
@@ -215,12 +378,13 @@ class eosDriver(object):
         independent variables, and sets the physical state.
         Modifies self.physicalState
         """
+        self.validatePointDict(pointDict)
         state = []
         for indVar in self.indVars:
             assert indVar in pointDict,\
                 "You have not specified an required independent variable in pointDict!"
             state.append( pointDict[indVar] )
-        self.physicalState = list(state)
+        self.physicalState = tuple(state)
 
     def clearState(self):
         """
@@ -233,13 +397,15 @@ class eosDriver(object):
 
     def setConstQuantityState(self, pointDict, quantity, target):
         assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
+        self.validatePointDict(pointDict)
         assert False, "setConstQuantityState not implemented yet!"
 
     def getTemperatureFromQuantityTYe(self, pointDict, quantity, target):
         # assign vars
+        self.validatePointDict(pointDict)
         ye = pointDict['ye']
-        xt = numpy.log10(pointDict['temp'])
-        lr = numpy.log10(pointDict['rho'])
+        xt = pointDict['logtemp']
+        lr = pointDict['logrho']
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
@@ -300,7 +466,7 @@ class eosDriver(object):
         print "setConstQuantityAndBetaEqState: ", pointDict
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
-        assert all([key in self.indVars for key in pointDict.keys()])
+        self.validatePointDict(pointDict)
         assert len(pointDict) < 2, "State overdetermined for more than 1 indVars!"
         #todo: check quantity is valid 3D table
 
@@ -318,9 +484,6 @@ class eosDriver(object):
         solveVarError = relativeError(currentSolveVar, previousSolveVar)
         otherVarName = pointDict.keys()[0]
         otherVar = pointDict.values()[0]
-        if otherVarName in self.logVars:
-                otherVar = math.log10(otherVar)
-                otherVarName = 'log' + otherVarName
 
         maxIters = 5
         tol = 1e-3
@@ -389,9 +552,10 @@ class eosDriver(object):
 
         newDict = pointDict.copy()
         newDict['ye'] = currentYe
-        newDict['temp'] = numpy.power(10.0,currentSolveVar)  # TODO TEMP HARD CODE
+        temp = numpy.power(10.0,currentSolveVar)  # TODO TEMP HARD CODE
+        newDict['temp'] = temp
         self.setState(newDict)
-        return currentYe, newDict['temp'] # TODO TEMP HARD CODE
+        return currentYe, temp # TODO TEMP HARD CODE
 
     def findYeOfMinAbsMunu(self, point):
         """
@@ -422,15 +586,12 @@ class eosDriver(object):
         assert isinstance(pointDict, dict)
         assert 'ye' not in pointDict, "You can't SPECIFY a Ye if you're " \
                                       "setting neutrinoless beta equlibrium!"
-        assert all([key in self.indVars for key in pointDict.keys()])
+        self.validatePointDict(pointDict)
         assert len(pointDict) < 3, "State overdetermined for more than 2 indVars!"
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
 
-        for key, value in pointDict.items():
-            if key in self.logVars:
-                pointDict['log' + key] = numpy.log10(value)
 
         #ASSUME 2 INDEPENENT VARIABLES ARE rho & temp
         logtemp = pointDict['logtemp']
@@ -470,9 +631,6 @@ class eosDriver(object):
         tableIndexes = []
         for i, indVar in enumerate(self.indVars):
             value = self.physicalState[i]
-            if indVar in self.logVars:
-                value = math.log10(value)
-                indVar = 'log' + indVar
             tableIndexes.append(lookupIndexBisect(value, self.h5file[indVar][:]))
 
         answers = self.interpolateTable(tableIndexes, quantities)
@@ -508,9 +666,6 @@ class eosDriver(object):
         x1 = []  # x0 is vector x1, y1, z1 from wikipedia
         for i, indVar in enumerate(self.indVars):
             value = self.physicalState[i]
-            if indVar in self.logVars:
-                value = math.log10(value)
-                indVar = 'log' + indVar
             xs.append( value  )
             x0.append( self.h5file[indVar][tableIndex[i]] )
             x1.append( self.h5file[indVar][tableIndex[i]+1] )
