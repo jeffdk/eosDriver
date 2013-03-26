@@ -225,7 +225,9 @@ class eosDriver(object):
 
     #todo: add option for picking different recovery methods
     def solveForQuantity(self, pointDict, quantity, target, bounds=None,
-                         function=lambda x,q: q, tol=1.e-6):
+                         function=(lambda x,q: q),
+                         pointAsFunctionOfSolveVar=None,
+                         tol=1.e-6):
         """
         Solve for independent variable left out of pointDict so that
         quantity=target.
@@ -243,16 +245,43 @@ class eosDriver(object):
 
         solveVar = [indVar for indVar in self.indVars if indVar not in pointDict][0]
 
+        #NOTE POINTASFUNCTIONOFSOLVERDICT MUST BE IN SAME FORMAT AS POINTDICT
+        #todo add assertions
+        if pointAsFunctionOfSolveVar is None:
+            pointAsFunctionOfSolveVar = dict()
+            for indVar in pointDict.keys():
+                pointAsFunctionOfSolveVar[indVar] = lambda x: pointDict[indVar]
+        else:
+            assert isinstance(pointAsFunctionOfSolveVar, dict), "Must be dict with key as proper indVar!"
+            for key, value in pointAsFunctionOfSolveVar.copy().items():
+                print [pointAsFunctionOfSolveVar[ii](14.0) for ii in pointAsFunctionOfSolveVar.keys() if pointAsFunctionOfSolveVar[ii] is not None]
+                if pointAsFunctionOfSolveVar[key] is not None:
+                    print "VALUE IS NOT NONE", key, value
+                    print [pointAsFunctionOfSolveVar[ii](14.0) for ii in pointAsFunctionOfSolveVar.keys() ]
+                    assert type(pointAsFunctionOfSolveVar[key]) == type(lambda x: None),\
+                        "pointAsFunctionOfSolveVar dict values must be functions!"
+                    print [pointAsFunctionOfSolveVar[ii](14.0) for ii in pointAsFunctionOfSolveVar.keys() ]
+                    pointAsFunctionOfSolveVar[key] = value
+                    print key, value(14.0)
+                else:
+                    print value, key, pointDict[key], "S:LKJDFLDSKJFD"
+                    pointAsFunctionOfSolveVar[key] = lambda x: pointDict[key]
+                    print value, key, pointAsFunctionOfSolveVar[key](3)
+                print [pointAsFunctionOfSolveVar[ii](14.0) for ii in pointAsFunctionOfSolveVar.keys() ]
+        print pointDict
+        print pointAsFunctionOfSolveVar['ye'](3.0), 'here1'
         #todo: add some good asserts for bounds
+        #NOTE BOUNDS MUST BE IN LOGVAR!!!
         if bounds is not None:
             boundMin = bounds[0]
             boundMax = bounds[1]
         else:
             boundMin = self.h5file[solveVar][0]
             boundMax = self.h5file[solveVar][-1]
-
+        print pointAsFunctionOfSolveVar['ye'](3.0), 'here4'
+        print value, key, pointAsFunctionOfSolveVar[key](3)
         indVarsTable = self.getIndVarsTable()
-
+        print pointAsFunctionOfSolveVar['ye'](3.0), 'here3'
         def quantityOfSolveVar(x):
             #Here we construct the point to interpolate at, but we
             # must do it carefully since we don't know apriori what
@@ -261,16 +290,19 @@ class eosDriver(object):
             #todo factor this for out of quantityOfSolveVar
             for indVar in self.indVars:
                 if indVar not in pointDict:
+                    print "NOT", indVar
                     value = x
                 else:
-                    value = pointDict[indVar]
-                print value
+                    value = pointAsFunctionOfSolveVar[indVar](x)
+                print indVar, value
                 point.append(value)
             point = tuple(point)
             print point
             print indVarsTable
-            answer = multidimInterp(point, indVarsTable, self.h5file[quantity][...],
-                                    linInterp, 2) - target
+            answer = function(x, multidimInterp(point, indVarsTable,
+                                                self.h5file[quantity][...],
+                                                linInterp, 2)
+                              ) - target
             return answer
 
         try:

@@ -1,3 +1,4 @@
+from consts import CGS_C
 from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1
 import numpy
 import matplotlib.pyplot as mpl
@@ -33,9 +34,17 @@ mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
 
-print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
-print ls220.solveForQuantity({'rho': 1e7, 'ye': 0.1}, 'entropy', 1., bounds=None)
+#print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
+#print ls220.solveForQuantity({'rho': 1e15, 'ye': 0.1}, 'entropy', 1., bounds=None)
 
+tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit1()(x))
+print ls220.solveForQuantity({'logtemp': 1., 'ye': 0.1}, 'logenergy',
+                             numpy.log10(.1 * CGS_C**2 - ls220.energy_shift),
+                             bounds=(11.,16.),
+                             pointAsFunctionOfSolveVar={'logtemp': tempFunc,
+                                                        'ye': None})
+
+exit()
 #print ls220.findIndVarOfMinAbsQuantity('ye', (0.0, 7), 'munu')
 #exit()
 
