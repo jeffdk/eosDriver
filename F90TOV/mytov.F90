@@ -14,7 +14,7 @@ program mytov
   integer, parameter :: nrhos = 400
   real*8 :: rhos(nrhos),mgravs(nrhos),mbarys(nrhos),rads(nrhos)
   real*8 :: rho_min = 6.0d14
-  real*8 :: rho_max = 7.5d15
+  real*8 :: rho_max = 7.49d15
   real*8 :: dlrho, lrho
   real*8 :: buff1,buff2
 

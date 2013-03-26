@@ -266,7 +266,7 @@ contains
 
        mydpdrho = (press_guess2-press_guess)/(rho_guess2-rho_guess)
        if (mydpdrho.lt.0.0d0) then
-          write(*,*) "table is crap, dpdrho.lt.0",rho_guess,temp_temp,temp_ye
+          write(6,"(A30,1P10E15.6)") "table is crap, dpdrho.lt.0",rho_guess
        endif
        
        if (abs(1.0d0-press_guess/xpress).lt.lprec) then
