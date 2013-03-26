@@ -28,14 +28,14 @@ def multidimInterp(point, tablePoints, tableData, interpolator,  interpolationOr
                     for i in range(dim)]
     indexesEnd = [i + interpolationOrder -1 for i in indexesStart]
 
-
+    localTablePoints = [None for _ in tablePoints]
     for i in range(dim):
         indexesThisAxis = [j for j in range(indexesStart[i], indexesEnd[i] + 1 )]
         #print indexesThisAxis
         tableData = numpy.take(tableData, indexesThisAxis, axis=i)
-        tablePoints[i] = numpy.take(tablePoints[i], indexesThisAxis)
+        localTablePoints[i] = numpy.take(tablePoints[i], indexesThisAxis)
 
-    answer = multidimInterpWork(point, tablePoints, tableData, interpolator)
+    answer = multidimInterpWork(point, localTablePoints, tableData, interpolator)
 
 
     return answer
@@ -134,9 +134,9 @@ def linInterp(x, xs, ys):
     tableXmax = xs[-1]
 
     assert x >= tableXmin, \
-        "x: %s \t is less than table minimum, %s" % (x,tableXmin)
+        "x: %s \t is less than table minimum, %s" % (x, tableXmin)
     assert x <= tableXmax, \
-        "x: %s \t is greater than table minimum, %s" % (x,tableXmin)
+        "x: %s \t is greater than table maximum, %s" % (x, tableXmax)
     i = lookupIndexBisect(x, xs)
 
     dx = (x - xs[i])/(xs[i+1] - xs[i])

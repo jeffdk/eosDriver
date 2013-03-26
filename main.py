@@ -21,7 +21,6 @@ midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
 #ls220.writeRotNSeosfile("test2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit2'}, 0.15)
 labels = []
 
-
 for mid, scale in midsAndScales:
     mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
               logrhos,  kentaDataTofLogRhoFit1()(logrhos))
@@ -30,7 +29,11 @@ mpl.legend(labels, loc =2)
 mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
+print ls220.pointFromDict({'rho': 1e7, 'temp': 1.0})
+ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
 
+#print ls220.findIndVarOfMinAbsQuantity('ye', (0.0, 7), 'munu')
+exit()
 
 print
 print "---------------"
