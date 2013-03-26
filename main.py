@@ -8,7 +8,10 @@ shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120
 
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
-ls220.setState({'rho': 1e14, 'ye': .1, 'temp': 0.5})
+point = {'rho': 1e14, 'ye': .1, 'temp': 0.5}
+
+
+ls220.setState(point)
 print ls220.query(['logpress','entropy','logenergy'])
 
 max = 30.0
@@ -29,11 +32,12 @@ mpl.legend(labels, loc =2)
 mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
-print ls220.pointFromDict({'rho': 1e7, 'temp': 1.0})
-ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
+
+print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
+print ls220.solveForQuantity({'rho': 1e7, 'ye': 0.1}, 'entropy', 1., bounds=None)
 
 #print ls220.findIndVarOfMinAbsQuantity('ye', (0.0, 7), 'munu')
-exit()
+#exit()
 
 print
 print "---------------"
@@ -44,7 +48,7 @@ print
 #ls220.writeRotNSeosfile('EOSisoentropic.dat', {'quantity': 'entropy', 'target': 1.0}, ye=0.15)
 
 print ls220.setConstQuantityAndBetaEqState({'rho': 1e8}, 'entropy', 25.0 )
-
+print ls220.query(['entropy','logpress','logenergy'])
 ls220.writeRotNSeosfile('EOSisothermalBetaEq.dat', {'T': 30.0,
                                               'rollMid': 14.0,
                                               'rollScale': 0.5,
