@@ -10,6 +10,8 @@ from tov import *
 
 EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
 
+EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
+
 nothing = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
             ["GShenFSU2.1",
              "GShenFSU_2.1EOS_rho280_temp180_ye52_version_1.1_20120824.h5"],
@@ -32,6 +34,8 @@ ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
 for i in range(ntemp):
 	temps[i] = 0.5 + dtemp*i
+
+temps = [0.01]
 
 rhomin = 1.0e6
 rhomax = 8.0e15
@@ -127,14 +131,14 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 		del myeos
 
 
-# fixed_ye_temp(EOSlist,temps,yes)
+fixed_ye_temp(EOSlist,temps,yes)
 # fixed_temp_betaeq(EOSlist,temps,yes)
-mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
-	   "c20p0_fixed_Ye", "c40p0_fixed_Ye"]
+#mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
+#	   "c20p0_fixed_Ye", "c40p0_fixed_Ye"]
 
 #for t in mytypes:
 #	special_fixed_Ye(EOSlist,temps,yes,t)
 
-mytypes2 = ["c30p5","c30p10","c30p0","c20p0","c40p0"]
-for t in mytypes2:
-	special_BetaEq(EOSlist,temps,yes,t)
+#mytypes2 = ["c30p5","c30p10","c30p0","c20p0","c40p0"]
+#for t in mytypes2:
+#	special_BetaEq(EOSlist,temps,yes,t)
