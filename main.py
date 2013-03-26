@@ -1,5 +1,5 @@
 from consts import CGS_C
-from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1
+from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1, kentaDataTofLogRhoFit2
 import numpy
 import matplotlib.pyplot as mpl
 from utils import lookupIndexBisect, linInterp, solveRootBisect, multidimInterp
@@ -36,14 +36,23 @@ mpl.xlabel(r"log10($\rho_b$ CGS)")
 
 #print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
 #print ls220.solveForQuantity({'rho': 1e15, 'ye': 0.1}, 'entropy', 1., bounds=None)
+ye = 0.1
+for ed in [3.e14,1.e15,2.e15]:
+    led = numpy.log10(ed)
 
-tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit1()(x))
-print ls220.solveForQuantity({'logtemp': 1., 'ye': 0.1}, 'logenergy',
-                             numpy.log10(.1 * CGS_C**2 - ls220.energy_shift),
-                             bounds=(11.,16.),
-                             pointAsFunctionOfSolveVar={'logtemp': tempFunc,
-                                                        'ye': None})
+    tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit2()(x))
+    tempFunc = lambda x: -2.0
+    tempFunc = lambda x: numpy.log10(getTRollFunc(20., .01, 13.93,.25)(x))
+    edFunc = lambda x, q: numpy.power(10.0,x) * (1.0 + (numpy.power(10.0, q) - shen.energy_shift)/ CGS_C**2)
+    result = shen.solveForQuantity({'logtemp': 1., 'ye': ye}, 'logenergy', ed,
+                                   bounds=(11.,16.),
+                                   pointAsFunctionOfSolveVar=tempFunc,
+                                   function=edFunc)
+    shen.setState({'logtemp': tempFunc(result), 'ye': ye, 'logrho': result})
+    eps = (numpy.power(10.0, shen.query('logenergy')) - shen.energy_shift) / CGS_C**2
 
+    print ed,"\t", numpy.power(10.0, result)
+    print "\t", numpy.power(10.0, result)* (1.0 + eps)
 exit()
 #print ls220.findIndVarOfMinAbsQuantity('ye', (0.0, 7), 'munu')
 #exit()
