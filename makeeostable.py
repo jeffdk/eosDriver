@@ -21,7 +21,7 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
         eostablename = myeosname+"_eostable_Ye=%06.3f_T=%06.3f.dat" % \
             (par2,par1)
         energy_shift = myeos.h5file['energy_shift'][0]
-        
+
         for i in range(nrhos):
             myeos.setState({'rho': 10.0**logrhos[i],
                             'ye': ye,
@@ -259,12 +259,20 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
         energy_shift = myeos.h5file['energy_shift'][0]
         temp = par1
+        lastPress = -1e-300
+        lastEps = None
         for i in range(nrhos):
             ye = myeos.setBetaEqState({'rho': 10.0**logrhos[i],
                                        'temp': temp})
             
             (press,eps) = myeos.query(['logpress','logenergy'])
-
+            if press < lastPress:
+                print "WOW, PRESSURE DECREASE WHEN INCREASING DENSITY, THAT'S FUCKED"
+                print "MANUALLY SETTING VALUES TO LAST VALUES"
+                press = lastPress
+                eps = lastEps
+            lastPress = press
+            lastEps = eps
             # convert units
             eostable[i,0] = log10(10.0**press * press_gf)
             eostable[i,1] = log10(10.0**eps * eps_gf)
