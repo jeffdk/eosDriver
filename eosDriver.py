@@ -11,6 +11,7 @@ import h5py
 import math
 import numpy
 import consts
+from consts import CGS_C
 from utils import multidimInterp, linInterp, solveRootBisect, \
     relativeError, lookupIndexBisect
 import scipy.optimize as scipyOptimize
@@ -371,6 +372,31 @@ class eosDriver(object):
                 closestIndVar = var
                 closestQuantity = abs(thisQuantity)
         return closestIndVar
+
+    def rhobFromEnergyDensity(self, ed, pointDict):
+        assert isinstance(pointDict, dict)
+        assert 'rho' not in pointDict and 'logrho' not in pointDict, \
+            "Can't set rho/logrho since we're solving for it!"
+        self.validatePointDict(pointDict)
+
+        edFunc = lambda x, q: numpy.power(10.0,x) \
+                              * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
+        result = self.solveForQuantity(pointDict, 'logenergy', ed,
+                                       bounds=(4., 16.),
+                                       function=edFunc)
+        return result
+
+
+    def rhobFromEnergyDensityWithTofRho(self, ed, ye, TofRhoFunc):
+
+        edFunc = lambda x, q: numpy.power(10.0,x) \
+                              * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
+        tempFunc = lambda x: numpy.log10(TofRhoFunc(x))
+        result = self.solveForQuantity({'logtemp': 0.0, 'ye': ye}, 'logenergy', ed,
+                                       bounds=(4., 16.),
+                                       function=edFunc,
+                                       pointAsFunctionOfSolveVar=tempFunc)
+        return result
 
     def setState(self, pointDict):
         """
