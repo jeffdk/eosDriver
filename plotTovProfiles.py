@@ -1,5 +1,11 @@
+from copy import deepcopy
 import os
 import matplotlib.pyplot as plt
+import operator
+import numpy
+import plot_defaults
+from consts import CGS_MSUN
+import eosDriver
 
 fileLocation = "/home/jeff/work/tovDataThermalSupport"
 
@@ -10,7 +16,56 @@ print files
 #script = 'c30p5'
 edToPlot = 2e15
 
+modelParamsTemplate = {'M': [], 'R': [], 'ed': [], 'rhobar': [], 'rhomax': []}
 
+styles = {'3e+14': ':',
+          '1e+15': '--',
+          '2e+15': '-'}
+
+colors = {'c30p0': 'g',
+          'c20p0': 'b',
+          'c40p0': 'r',
+          'T=00010': 'm',
+          'c30p5': 'c',
+          'c30p10': 'k'}
+
+symbols = {'c30p0': 's',
+           'c20p0': 'v',
+           'c40p0': '^',
+           'T=00010': '*',
+           'c30p5': 'p',
+           'c30p10': 'H'}
+
+scripts = {'c30p0': deepcopy(modelParamsTemplate.copy()),
+           'c20p0': deepcopy(modelParamsTemplate.copy()),
+           'c40p0': deepcopy(modelParamsTemplate.copy()),
+           'T=00010': deepcopy(modelParamsTemplate.copy()),
+           'c30p5': deepcopy(modelParamsTemplate.copy()),
+           'c30p10': deepcopy(modelParamsTemplate.copy())}
+
+shen = eosDriver.eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
+
+tfuncs = {'c30p0':  eosDriver.getTRollFunc(30.0, 0.01, 14.055, .375),
+           'c20p0': eosDriver.getTRollFunc(20.0, 0.01, 13.93, .25),
+           'c40p0': eosDriver.getTRollFunc(40.0, 0.01, 14.18, .5),
+           'T=00010': lambda x: 0.01,
+           'c30p5': eosDriver.kentaDataTofLogRhoFit2(),
+           'c30p10': eosDriver.kentaDataTofLogRhoFit1()}
+
+ye = 0.1
+
+
+def thermalPressureSupport(rho, tfunc):
+    shen.setState({'rho': rho, 'temp': 0.01, 'ye': ye})
+    cold = shen.query('logpress', deLog10Result=True)
+
+    shen.setState({'rho': rho, 'temp': tfunc(rho), 'ye': ye })
+    hot = shen.query('logpress', deLog10Result=True)
+
+    return hot/cold - 1.0
+
+plt.figure()
+plt.subplot(2, 2, 1 )
 for file in files:
     parts = file.split('_')
     #print parts
@@ -21,19 +76,146 @@ for file in files:
 
     #silly way to say only plot this guy
     #if not thisScript == script:
-    if not ed == edToPlot:
+    #if not ed == edToPlot:
         #print "'%s' is not '%s'" % (script, thisScript)
-        continue
+    #    continue
 
     filehandle = open(fileLocation + '/' + file, 'r')
     data = {'r': [], 'rho': [], 'p': [], 'm': []}
     for line in filehandle:
         entry = line.split()
-        data['r'].append(float(entry[0]))
+        data['r'].append(float(entry[0]) / 1.e5)
         data['rho'].append(float(entry[1]))
         data['p'].append(float(entry[2]))
-        data['m'].append(float(entry[3]))
-    print thisScript, data['m'][-1]/data['rho'][-1]**3
-    plt.plot(data['m'], data['rho'], label=thisScript)
+        data['m'].append(float(entry[3]) / CGS_MSUN)
+    M = data['m'][-1]
+    R = data['r'][-1]
+    rhobar = 3.* (M * CGS_MSUN) / (R * 1.e5) ** 3 / (4.0 * numpy.pi)
+    rhomax = data['rho'][0]
+    print thisScript, rhobar
+    scripts[thisScript]['M'].append(M)
+    scripts[thisScript]['R'].append(R)
+    scripts[thisScript]['rhobar'].append(rhobar)
+    scripts[thisScript]['ed'].append(ed)
+    scripts[thisScript]['rhomax'].append(rhomax)
+    label = None
+    if styles[str(ed)] == '-':
+        label = thisScript
+    plt.subplot(2, 2, 1 )
+    xaxis = 'r'
+    yaxis = 'rho'
+    #plt.xlabel('Radius (km)')
+    plt.ylabel(r'Density $\rho_b$ (cgs)')
+    plt.semilogy(numpy.array(data[xaxis]), data[yaxis],
+                 label=label, ls=styles[str(ed)], color=colors[thisScript])
+
+    plt.subplot(2, 2, 2)
+    xaxis = 'r'
+    yaxis = 'rho'
+    plt.xlabel('Radius (km)')
+    plt.ylabel(r'Density $\rho_b$ (cgs)')
+    plt.plot(numpy.array(data[xaxis]), data[yaxis],
+                 label=label, ls=styles[str(ed)], color=colors[thisScript])
+
+    # plt.subplot(2,2,3)
+    # xaxis = 'r'
+    # yaxis = 'DURRR'
+    # plt.xlabel(r'Radius (km)')
+    # plt.ylabel('Thermal Pressure Support')
+    # tfunc = numpy.frompyfunc(lambda rho: thermalPressureSupport(rho, tfuncs[thisScript]), 1, 1)
+    # plt.semilogy(numpy.array(data[xaxis]), tfunc(numpy.array(data['rho'])),
+    #              label=label, ls=styles[str(ed)], color=colors[thisScript])
+
+    plt.subplot(2, 2, 3)
+    xaxis = 'r'
+    yaxis = 'rho'
+    plt.xlabel('Radius (km)')
+    plt.ylabel(r'$\rho_br^2$')
+    plt.semilogy(numpy.array(data[xaxis]), numpy.array(data[yaxis]) * numpy.array(data[xaxis]) * numpy.array(data[xaxis]),
+                 label=label, ls=styles[str(ed)], color=colors[thisScript])
+
+
+    plt.subplot(2, 2, 4)
+    xaxis = 'r'
+    yaxis = 'rho'
+    plt.xlabel('Radius (km)')
+    plt.ylabel(r'$\rho_br^2$')
+    plt.plot(numpy.array(data[xaxis]), numpy.array(data[yaxis]) * numpy.array(data[xaxis]) * numpy.array(data[xaxis]),
+                 label=label, ls=styles[str(ed)], color=colors[thisScript])
+
+
+plt.tight_layout(pad=1.05, h_pad=0.1, w_pad=0.1)
+plt.subplots_adjust(left=0.06, bottom=0.08, right=0.98, top=0.98, wspace=0.15, hspace=0.17)
+fig = plt.gcf()
+fig.set_size_inches(24, 13.5)
 plt.legend()
+plt.show()
+
+plt.clf()
+
+plt.subplot(2, 2, 2)
+
+#numpyfy data
+for script, value in scripts.items():
+    for key in value.keys():
+        value[key] = numpy.array(value[key])
+
+xaxis = 'R'
+yaxis = 'M'
+plt.xlabel('Radius (km)')
+plt.ylabel(r'Mass ($M_\odot$)')
+for key, value in scripts.items():
+    table = [col for col in value.values()]
+    table = zip(*table)
+    table = sorted(table, key=operator.itemgetter(0))
+    table = zip(*table)
+    table = numpy.array(table)
+    label = key
+    plt.scatter(value[xaxis], value[yaxis],
+                c=colors[key], label=label, marker=symbols[key], s=100)
+    plt.plot(table[1], table[2], color=colors[key])
+plt.legend()
+#plt.show()
+
+plt.subplot(2, 2, 3)
+xaxis = 'rhobar'
+yaxis = 'M'
+plt.xlabel(r'Average density $\bar{\rho_b}$ (cgs)')
+plt.ylabel(r'Mass ($M_\odot$)')
+for key, value in scripts.items():
+    table = [col for col in value.values()]
+    table = zip(*table)
+    table = sorted(table, key=operator.itemgetter(0))
+    table = zip(*table)
+    table = numpy.array(table)
+    label = key
+    plt.scatter(value[xaxis], value[yaxis],
+                c=colors[key], label=label, marker=symbols[key], s=100)
+    plt.plot(table[3], table[2], color=colors[key])
+plt.legend(loc=2)
+#plt.show()
+
+plt.subplot(2, 2, 4)
+xaxis = 'rhobar'
+yaxis = 'M'
+plt.xlabel(r'$\bar{\rho_b}$/$\rho_{\mathrm{max}}$')
+plt.ylabel(r'Mass ($M_\odot$)')
+for key, value in scripts.items():
+    table = [col for col in value.values()]
+    table = zip(*table)
+    table = sorted(table, key=operator.itemgetter(0))
+    table = zip(*table)
+    table = numpy.array(table)
+    label = key
+    print table
+    plt.scatter(numpy.array(value[xaxis]) / numpy.array(value['rhomax']), value[yaxis],
+                c=colors[key], label=label, marker=symbols[key], s=100)
+    plt.plot(table[3] / table[4], table[2], color=colors[key])
+plt.legend(loc=2)
+
+
+plt.tight_layout(pad=1.05, h_pad=0.1, w_pad=0.1)
+plt.subplots_adjust(left=0.06, bottom=0.08, right=0.98, top=0.98, wspace=0.15, hspace=0.2)
+fig = plt.gcf()
+fig.set_size_inches(24, 13.5)
 plt.show()

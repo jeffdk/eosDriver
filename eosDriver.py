@@ -1,8 +1,10 @@
 """
  Defines an equation of state (eos) class which reads in a stellarcollapse.org
  EOS .h5 file.  Then any quantity in the table can be queried.
- Note: specify the independent variables for physical state in non-logspace;
-       the code checks to see if variable is in logspace and adjusts
+ Note: You may specify the independent variables rho and temp
+  for physical state in terms of either logspace or non-logspace;
+  Code which does table computation should always call validatePointDict
+  to convert rho and temp to logspace if they are specified in non-logspace.
 
 Jeff Kaplan  Feb, 2013  <jeffkaplan@caltech.edu>
 """
@@ -77,6 +79,9 @@ class eosDriver(object):
         for key in pointDict.keys():
             assert key in self.indVars or key in self.indLogVars, \
                 "'%s' of your pointDict is not a valid independent variable!"  % key
+            assert isinstance(pointDict[key], float), \
+                "Wow, it seems you've tried to specify %s as something " \
+                "other than a float: %s" % (key, str(pointDict[key]))
             if key in self.indLogVars:
                 pointDict.update({'log' + key: numpy.log10(pointDict[key])})
                 del pointDict[key]
