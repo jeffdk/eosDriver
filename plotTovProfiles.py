@@ -6,6 +6,7 @@ import numpy
 import plot_defaults
 from consts import CGS_MSUN
 import eosDriver
+from utils import lookupIndexBisect, linInterp
 
 fileLocation = "/home/jeff/work/tovDataThermalSupport"
 
@@ -16,7 +17,7 @@ print files
 #script = 'c30p5'
 edToPlot = 2e15
 
-modelParamsTemplate = {'M': [], 'R': [], 'ed': [], 'rhobar': [], 'rhomax': []}
+modelParamsTemplate = {'M': [], 'R': [], 'ed': [], 'rhobar': [], 'rhomax': [], 'rhoMfract': []}
 
 styles = {'3e+14': ':',
           '1e+15': '--',
@@ -53,7 +54,7 @@ tfuncs = {'c30p0':  eosDriver.getTRollFunc(30.0, 0.01, 14.055, .375),
            'c30p10': eosDriver.kentaDataTofLogRhoFit1()}
 
 ye = 0.1
-
+massFraction = .5
 
 def thermalPressureSupport(rho, tfunc):
     shen.setState({'rho': rho, 'temp': 0.01, 'ye': ye})
@@ -64,8 +65,18 @@ def thermalPressureSupport(rho, tfunc):
 
     return hot/cold - 1.0
 
+
+def findPointOfHalfM(modelData, fract=0.5):
+    M = modelData['m'][-1]
+    Mfract = M * fract
+    #i = lookupIndexBisect(M / 2.0, modelData['m'])
+    rho = linInterp(Mfract, modelData['m'], modelData['rho'])
+    r = linInterp(Mfract, modelData['m'], modelData['r'])
+    p = linInterp(Mfract, modelData['m'], modelData['p'])
+
+    return {'rho': rho, 'r': r, 'p': p}
+
 plt.figure()
-plt.subplot(2, 2, 1 )
 for file in files:
     parts = file.split('_')
     #print parts
@@ -76,7 +87,8 @@ for file in files:
 
     #silly way to say only plot this guy
     #if not thisScript == script:
-    #if not ed == edToPlot:
+    #if thisScript == 'T=00010' or thisScript == 'c40p0' or thisScript == 'c20p0':
+    #    continue
         #print "'%s' is not '%s'" % (script, thisScript)
     #    continue
 
@@ -98,44 +110,45 @@ for file in files:
     scripts[thisScript]['rhobar'].append(rhobar)
     scripts[thisScript]['ed'].append(ed)
     scripts[thisScript]['rhomax'].append(rhomax)
+    scripts[thisScript]['rhoMfract'].append(findPointOfHalfM(data, massFraction)['rho'])
     label = None
     if styles[str(ed)] == '-':
         label = thisScript
-    plt.subplot(2, 2, 1 )
-    xaxis = 'r'
-    yaxis = 'rho'
-    #plt.xlabel('Radius (km)')
-    plt.ylabel(r'Density $\rho_b$ (cgs)')
-    plt.semilogy(numpy.array(data[xaxis]), data[yaxis],
-                 label=label, ls=styles[str(ed)], color=colors[thisScript])
-
-    plt.subplot(2, 2, 2)
-    xaxis = 'r'
-    yaxis = 'rho'
-    plt.xlabel('Radius (km)')
-    plt.ylabel(r'Density $\rho_b$ (cgs)')
-    plt.plot(numpy.array(data[xaxis]), data[yaxis],
-                 label=label, ls=styles[str(ed)], color=colors[thisScript])
-
-    # plt.subplot(2,2,3)
+    # plt.subplot(2, 2, 1 )
     # xaxis = 'r'
-    # yaxis = 'DURRR'
-    # plt.xlabel(r'Radius (km)')
-    # plt.ylabel('Thermal Pressure Support')
-    # tfunc = numpy.frompyfunc(lambda rho: thermalPressureSupport(rho, tfuncs[thisScript]), 1, 1)
-    # plt.semilogy(numpy.array(data[xaxis]), tfunc(numpy.array(data['rho'])),
+    # yaxis = 'rho'
+    # #plt.xlabel('Radius (km)')
+    # plt.ylabel(r'Density $\rho_b$ (cgs)')
+    # plt.semilogy(numpy.array(data[xaxis]), data[yaxis],
     #              label=label, ls=styles[str(ed)], color=colors[thisScript])
+    #
+    # plt.subplot(2, 2, 2)
+    # xaxis = 'r'
+    # yaxis = 'rho'
+    # plt.xlabel('Radius (km)')
+    # plt.ylabel(r'Density $\rho_b$ (cgs)')
+    # plt.plot(numpy.array(data[xaxis]), data[yaxis],
+    #              label=label, ls=styles[str(ed)], color=colors[thisScript])
+    #
+    # # plt.subplot(2,2,3)
+    # # xaxis = 'r'
+    # # yaxis = 'DURRR'
+    # # plt.xlabel(r'Radius (km)')
+    # # plt.ylabel('Thermal Pressure Support')
+    # # tfunc = numpy.frompyfunc(lambda rho: thermalPressureSupport(rho, tfuncs[thisScript]), 1, 1)
+    # # plt.semilogy(numpy.array(data[xaxis]), tfunc(numpy.array(data['rho'])),
+    # #              label=label, ls=styles[str(ed)], color=colors[thisScript])
+    #
+    # plt.subplot(2, 2, 3)
+    # xaxis = 'r'
+    # yaxis = 'rho'
+    # plt.xlabel('Radius (km)')
+    # plt.ylabel(r'$\rho_br^2$')
+    # plt.plot(numpy.array(data[xaxis]), numpy.array(data[yaxis]) * numpy.array(data[xaxis]) * numpy.array(data[xaxis]),
+    #              label=label, ls=styles[str(ed)], color=colors[thisScript])
+    #
 
-    plt.subplot(2, 2, 3)
-    xaxis = 'r'
-    yaxis = 'rho'
-    plt.xlabel('Radius (km)')
-    plt.ylabel(r'$\rho_br^2$')
-    plt.semilogy(numpy.array(data[xaxis]), numpy.array(data[yaxis]) * numpy.array(data[xaxis]) * numpy.array(data[xaxis]),
-                 label=label, ls=styles[str(ed)], color=colors[thisScript])
-
-
-    plt.subplot(2, 2, 4)
+    #plt.subplot(2, 2, 4)
     xaxis = 'r'
     yaxis = 'rho'
     plt.xlabel('Radius (km)')
@@ -153,13 +166,32 @@ plt.show()
 
 plt.clf()
 
-plt.subplot(2, 2, 2)
+
 
 #numpyfy data
 for script, value in scripts.items():
     for key in value.keys():
         value[key] = numpy.array(value[key])
 
+plt.subplot(2, 2, 1)
+xaxis = 'R'
+yaxis = 'rhoMfract'
+plt.xlabel('Radius (km)')
+plt.ylabel(r'$\rho_b$ at which $m/M = %s$' % massFraction)
+for key, value in scripts.items():
+    table = [col for col in value.values()]
+    table = zip(*table)
+    table = sorted(table, key=operator.itemgetter(0))
+    table = zip(*table)
+    table = numpy.array(table)
+    label = key
+    plt.scatter(value[xaxis], value[yaxis],
+                c=colors[key], label=label, marker=symbols[key], s=100)
+    plt.plot(table[2], table[5], color=colors[key])
+plt.legend(loc=4)
+#plt.show()
+
+plt.subplot(2, 2, 2)
 xaxis = 'R'
 yaxis = 'M'
 plt.xlabel('Radius (km)')
@@ -173,7 +205,7 @@ for key, value in scripts.items():
     label = key
     plt.scatter(value[xaxis], value[yaxis],
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[1], table[2], color=colors[key])
+    plt.plot(table[2], table[1], color=colors[key])
 plt.legend()
 #plt.show()
 
@@ -191,7 +223,7 @@ for key, value in scripts.items():
     label = key
     plt.scatter(value[xaxis], value[yaxis],
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[3], table[2], color=colors[key])
+    plt.plot(table[3], table[1], color=colors[key])
 plt.legend(loc=2)
 #plt.show()
 
@@ -201,6 +233,7 @@ yaxis = 'M'
 plt.xlabel(r'$\bar{\rho_b}$/$\rho_{\mathrm{max}}$')
 plt.ylabel(r'Mass ($M_\odot$)')
 for key, value in scripts.items():
+    print value
     table = [col for col in value.values()]
     table = zip(*table)
     table = sorted(table, key=operator.itemgetter(0))
@@ -210,7 +243,7 @@ for key, value in scripts.items():
     print table
     plt.scatter(numpy.array(value[xaxis]) / numpy.array(value['rhomax']), value[yaxis],
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[3] / table[4], table[2], color=colors[key])
+    plt.plot(table[3] / table[4], table[1], color=colors[key])
 plt.legend(loc=2)
 
 
