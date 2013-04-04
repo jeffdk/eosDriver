@@ -656,8 +656,9 @@ class eosDriver(object):
         Query's the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
         """
-        assert all(self.physicalState), "One or more independent variables " \
-                                        "not set for this EOS's physical state!"
+        assert all([var is not None for var in self.physicalState]), \
+            "One or more independent variables " \
+            "not set for this EOS's physical state!"
 
         tableIndexes = []
         for i, indVar in enumerate(self.indVars):
