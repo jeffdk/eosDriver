@@ -608,7 +608,7 @@ class eosDriver(object):
 
     # neutrino-less beta equilibrium occurs when mu_n = mu_e + mu_p
     # munu = mu_p - mu_n + mu_e, so when munu = 0, we have beta-eq!
-    def setBetaEqState(self, pointDict):
+    def setBetaEqState(self, pointDict, useThisYeIfSolveFails=None):
         """
         Takes dictionary for physical state values EXCEPT Ye, then sets Ye
         via solving for neutrino-less beta equilibrium.
@@ -642,8 +642,12 @@ class eosDriver(object):
                                   self.h5file['ye'][-1], (), tol)
         except ValueError as err:
             print "Error in scipy root solver solving for ye: ", str(err)
-            currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
-            print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+            if useThisYeIfSolveFails is None:
+                currentYe = self.findYeOfMinAbsMunu((logtemp, logrho))
+                print "Recovering with findYeOfMinAbsMunu, answer: %s" % currentYe
+            else:
+                currentYe = useThisYeIfSolveFails
+                print "Setting Ye to useThisYeIfSolveFails, answer: %s" % currentYe
 
         newDict = pointDict.copy()
         newDict['ye'] = currentYe
