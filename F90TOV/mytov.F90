@@ -35,6 +35,7 @@ program mytov
 
   call readtable(trim(adjustl(eosfilename)))
 
+  rho_max = eos_rhomax*0.999
   dlrho = (log10(rho_max) - log10(rho_min)) / (nrhos - 1)
   do i=1,nrhos
      rhos(i) = 10.0d0**(log10(rho_min) + (i-1)*dlrho)

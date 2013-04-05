@@ -18,6 +18,7 @@ module TOV
   real*8,parameter :: pi = 3.14159265d0
   real*8,parameter :: c = 29979245800.0d0
   real*8,parameter :: precision = 1.0d-12
+  real*8 :: eos_rhomax = 0.0d0
   real*8 :: eos_rhomin = 1.0d4
   real*8 :: eos_lrhomin 
   real*8 :: eos_drhoi 
@@ -266,7 +267,7 @@ contains
 
        mydpdrho = (press_guess2-press_guess)/(rho_guess2-rho_guess)
        if (mydpdrho.lt.0.0d0) then
-          write(6,"(A30,1P10E15.6)") "table is crap, dpdrho.lt.0",rho_guess
+!          write(6,"(A30,1P1E15.6,i10)") "table is crap, dpdrho.lt.0",rho_guess,counter
        endif
        
        if (abs(1.0d0-press_guess/xpress).lt.lprec) then
@@ -451,12 +452,13 @@ contains
     enddo
     close(666)
     neos = count
+    eos_rhomax = 10.0d0**(eos_lrho(neos))
     eos_rhomin = 10.0d0**(eos_lrho(1))
     eos_lrhomin = dlog10(eos_rhomin)
     eos_drhoi  = 1.0d0/(eos_lrho(2) - eos_lrho(1))
     
     write(6,*) "Read EOS table ", trim(adjustl(tablename))
-    write(6,"(A10,i7,A10,1P10E15.6)") "nrho: ",neos," rho_min: ",eos_rhomin
+    write(6,"(A10,i7,A10,1P10E15.6)") "nrho: ",neos," rho_min/max: ",eos_rhomin,eos_rhomax
     write(6,"(A10,1P10E15.6)") "eps shift", energy_shift
 
   end subroutine readtable
