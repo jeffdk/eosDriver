@@ -255,7 +255,7 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
     elif(mytype == 'fixed_temp_betaeq'):
 
-        eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par2)
+        eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par1)
 
         energy_shift = myeos.h5file['energy_shift'][0]
         temp = par1
