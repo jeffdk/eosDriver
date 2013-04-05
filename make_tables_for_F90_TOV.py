@@ -54,7 +54,7 @@ for i in range(ntemp):
 
 rhomin = 1.0e6
 rhomax = 0.0
-nrhos = 600
+nrhos = 200
 
 def fixed_ye_temp(EOSlist,temps,yes):
     for ieos in range(len(EOSlist)):
@@ -132,6 +132,9 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 			# convert units
 			eostable[i,0] = log10(10.0**press * press_gf)
 			eostable[i,1] = log10(10.0**eps * eps_gf)
+			if (i>0 and eostable[i,0] < eostable[i-1,0]):
+				eostable[i,0] = eostable[i-1,0]
+
 			
 			print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
 		energy_shift = energy_shift*eps_gf
@@ -160,5 +163,6 @@ mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
 #    special_fixed_Ye(EOSlist,temps,yes,t)
 
 mytypes2 = ["c20p0","c30p5","c30p10","c30p0","c40p0"]
+mytypes2 = ["c20p0"]
 for t in mytypes2:
     special_BetaEq(EOSlist,temps,yes,t)
