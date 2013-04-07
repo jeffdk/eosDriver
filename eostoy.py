@@ -23,9 +23,9 @@ def get_ynu(eta,rho):
 
     return xynu
 
-rho = 3.0e14
-ylep = 0.15
-temp = 10.0
+rho = 5.0e14
+ylep = 0.1
+temp = 5.0
 
 ye = ylep
 
@@ -33,8 +33,8 @@ count = 0
 prec = 1.0e-6
 F = 1.0
 
-minye = min(myeos.h5file['ye'])
-maxye = max(myeos.h5file['ye'])
+minye = min(myeos.h5file['ye'])*1.01
+maxye = max(myeos.h5file['ye'])*0.99
 
 # get two initial guesses for ynu
 ye1 = ye
@@ -54,10 +54,13 @@ eta2 = munu2 / temp
 ynu2 = get_ynu(eta2,rho)
 
 dynudye = (ynu2-ynu1)/(ye2-ye1)
-
+tiny = 1.0e-10
+fac = 1.0
 while count < 1000 and abs(F) > prec:
-    dF = dynudye - 1
-    ye2 = min(max(ye1 - F/dF,minye),maxye)
+    #if(count>1000):
+    #    fac = 0.1
+    dF = dynudye - 1.0
+    ye2 = min(max(ye1 - F/dF*fac,minye),maxye)
     myeos.setState({'rho': rho,
                     'ye': ye2,
                     'temp': temp})
@@ -66,10 +69,10 @@ while count < 1000 and abs(F) > prec:
     ynu2 = get_ynu(eta,rho)
     count += 1
     F = ylep - ye2 + ynu2
-    dynudye = (ynu2-ynu1)/(ye2-ye1)
+    dynudye = (ynu2-ynu1)/(ye2-ye1+tiny)
     ye1 = ye2
     ynu1 = ynu2
-    print "%5d %15.6E %15.6E %15.6E" % (count,ynu1,ye1,abs(F))
+    print "%5d %15.6E %15.6E %15.6E %15.6E" % (count,munu2,ynu1,ye1,abs(F))
 
 ye = ye1
 
