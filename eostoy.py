@@ -13,19 +13,19 @@ myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 
 kb_erg = 1.380658e-16
 avo = 6.0221367e23
-hbarc_mevcm = 1.97326966e-11
+hc_mevcm = 1.97326966e-11*2.0*pi
 pi = 3.14159265358979e0
 
 def get_ynu(eta,rho):
     
-    nnu = 4*pi*(temp/hbarc_mevcm)**3 * 1.0/3.0 * eta * (eta**2 + pi**2)
+    nnu = 4*pi*(temp/hc_mevcm)**3 * 1.0/3.0 * eta * (eta**2 + pi**2)
     xynu = nnu/(rho*avo)
 
     return xynu
 
 rho = 5.0e14
 ylep = 0.1
-temp = 5.0
+temp = 10.0
 
 ye = ylep
 
