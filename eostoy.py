@@ -23,11 +23,15 @@ def get_ynu(eta,rho):
 
     return xynu
 
-rho = 5.0e14
+rho = 1.0e12
 ylep = 0.1
-temp = 10.0
 
+temp = 0.1
+ylep = myeos.setBetaEqState({'rho': rho,
+                           'temp': temp})
+print "initial Y_lep", ylep
 ye = ylep
+temp = 20.0
 
 count = 0
 prec = 1.0e-6
@@ -59,7 +63,7 @@ fac = 1.0
 while count < 1000 and abs(F) > prec:
     #if(count>1000):
     #    fac = 0.1
-    dF = dynudye - 1.0
+    dF = -dynudye - 1.0
     ye2 = min(max(ye1 - F/dF*fac,minye),maxye)
     myeos.setState({'rho': rho,
                     'ye': ye2,
@@ -68,11 +72,12 @@ while count < 1000 and abs(F) > prec:
     eta = munu2/temp
     ynu2 = get_ynu(eta,rho)
     count += 1
-    F = ylep - ye2 + ynu2
+    F = ylep - ye2 - ynu2
     dynudye = (ynu2-ynu1)/(ye2-ye1+tiny)
     ye1 = ye2
     ynu1 = ynu2
-    print "%5d %15.6E %15.6E %15.6E %15.6E" % (count,munu2,ynu1,ye1,abs(F))
+    print "%5d %15.6E %15.6E %15.6E %15.6E %15.6E" % (count,munu2,ylep,
+                                                      ynu1,ye1,abs(F))
 
 ye = ye1
 
