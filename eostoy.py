@@ -16,14 +16,14 @@ avo = 6.0221367e23
 hc_mevcm = 1.97326966e-11*2.0*pi
 pi = 3.14159265358979e0
 
-def get_ynu(eta,rho):
+def get_ynu(eta,rho,temp):
     
     nnu = 4*pi*(temp/hc_mevcm)**3 * 1.0/3.0 * eta * (eta**2 + pi**2)
     xynu = nnu/(rho*avo)
 
     return xynu
 
-rho = 1.0e12
+rho = 1.0e15
 ylep = 0.1
 
 temp = 0.1
@@ -48,14 +48,14 @@ myeos.setState({'rho': rho,
                 'temp': temp})
 munu1 = myeos.query('munu')
 eta1 = munu1 / temp
-ynu1 = get_ynu(eta1,rho)
+ynu1 = get_ynu(eta1,rho,temp)
 
 myeos.setState({'rho': rho,
                 'ye': ye2,
                 'temp': temp})
 munu2 = myeos.query('munu')
 eta2 = munu2 / temp
-ynu2 = get_ynu(eta2,rho)
+ynu2 = get_ynu(eta2,rho,temp)
 
 dynudye = (ynu2-ynu1)/(ye2-ye1)
 tiny = 1.0e-10
@@ -70,7 +70,7 @@ while count < 1000 and abs(F) > prec:
                     'temp': temp})
     munu2 = myeos.query('munu')
     eta = munu2/temp
-    ynu2 = get_ynu(eta,rho)
+    ynu2 = get_ynu(eta,rho,temp)
     count += 1
     F = ylep - ye2 - ynu2
     dynudye = (ynu2-ynu1)/(ye2-ye1+tiny)
