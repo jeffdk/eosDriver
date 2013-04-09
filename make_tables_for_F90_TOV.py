@@ -1,7 +1,7 @@
 #!/opt/local/bin/python
 import sys
 from units import *
-from numpy import linspace, zeros, log10, pi, sqrt
+from numpy import linspace, zeros, log10, pi, sqrt, exp
 from eosDriver import eosDriver, getTRollFunc, kentaDataTofLogRhoFit1, kentaDataTofLogRhoFit2
 import makeeostable
 from tov import *
@@ -9,10 +9,10 @@ from tov import *
 #define EOSs
 
 #EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
-#EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
+EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
 
-EOSlist = [             ["GShenNL3",
-             "GShen_NL3EOS_rho280_temp180_ye52_version_1.1_20120817.h5"]]
+#EOSlist = [             ["GShenNL3",
+#             "GShen_NL3EOS_rho280_temp180_ye52_version_1.1_20120817.h5"]]
 
 #EOSlist = [             ["GShenFSU2.1",
 #             "GShenFSU_2.1EOS_rho280_temp180_ye52_version_1.1_20120824.h5"] ]
@@ -44,17 +44,17 @@ nothing = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
 
 yes = [0.1,0.15]
 tmin = 0.5
-tmax = 50.0
+tmax = 50
 dtemp = 0.5
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
 for i in range(ntemp):
-	temps[i] = 0.5 + dtemp*i
+	temps[i] = tmin + dtemp*i
 
 
 rhomin = 1.0e6
 rhomax = 0.0
-nrhos = 200
+nrhos = 400
 
 def fixed_ye_temp(EOSlist,temps,yes):
     for ieos in range(len(EOSlist)):
@@ -73,7 +73,7 @@ def fixed_ye_temp(EOSlist,temps,yes):
 
         del myeos
   
-def fixed_temp_betaeq(EOSlist,temps,yes):
+def fixed_temp_betaeq(EOSlist,temps):
 	for ieos in range(len(EOSlist)):
 		myeos = eosDriver(EOSlist[ieos][1])
 		rhomax = (10.0e0**max(myeos.h5file['logrho']))*0.995
@@ -103,6 +103,126 @@ def special_fixed_Ye(EOSlist,temps,yes,mytype):
 					mytype,par1,par2)
 		del myeos
 
+def get_pnu(eta,temp,rho,rhotrap):
+	mev_to_erg = 1.60217733e-6
+	pi = 3.14159265358979e0
+	hc_mevcm = 1.97326966e-11*2.0*pi
+	pnu =  mev_to_erg * 4.0*pi/3.0 * (temp**4/hc_mevcm**3) * \
+	    (21.0*pi**4 / 60.0 + 0.5*eta**2 * \
+		     (pi**2 + 0.5*eta**2)) * exp(-rhotrap/rho)
+	return pnu
+
+def fixed_temp_nfbetaeq_pnu(EOSlist,temps):
+	for ieos in range(len(EOSlist)):
+		myeos = eosDriver(EOSlist[ieos][1])
+		rhomax = (10.0e0**max(myeos.h5file['logrho']))*0.995
+		logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
+		eostable = zeros((nrhos,2))
+		energy_shift = myeos.h5file['energy_shift'][0]
+		energy_shift = energy_shift*eps_gf
+		rhotrap = 10.0e0**12.5
+		for ii in range(len(temps)):
+			eostablename = EOSlist[ieos][0]+\
+			    "_eostable_NFBetaEq_pnu_T=%06.3f.dat" % \
+			    (temps[ii])
+			for i in range(nrhos):
+				temp_cold = 0.5e0
+				temp = temps[ii]
+				rho = 10.0**logrhos[i]
+				ylep = myeos.setBetaEqState({'rho': rho,
+							     'temp': temp_cold})
+
+				ye = myeos.setNuFullBetaEqState({'rho': rho,
+							   'temp': temp},ylep,rhotrap)
+				print "Making EOS: %15.6E %15.6E %15.6E %15.6E" %\
+				    (10.0**logrhos[i],temp,ye,ylep)
+
+				(press,eps,munu) = myeos.query(['logpress','logenergy','munu'])
+				eta = munu/temp 
+				pnu = get_pnu(eta,temp,rho,rhotrap)
+				epsnu = 3.0e0*pnu / rho
+				# convert units
+				eostable[i,0] = log10((10.0**press+pnu) * press_gf)
+				eostable[i,1] = log10((10.0**eps+epsnu) * eps_gf)
+				if (i>0 and eostable[i,0] < eostable[i-1,0]):
+					eostable[i,0] = eostable[i-1,0]
+					eostable[i,0] = eostable[i-1,0]
+				
+
+			# write EOS table
+			eosfile=open(eostablename,"w")
+			esstring = "%18.9E\n" % (energy_shift/eps_gf)
+			eosfile.write(esstring)
+			for i in range(len(eostable[:,0])):
+				sline = "%15.6E %15.6E %15.6E\n" % \
+				    (logrhos[i],eostable[i,0],eostable[i,1])
+				eosfile.write(sline)
+			eosfile.close()
+		del myeos
+
+
+def special_NFBetaEq_pnu(EOSlist,temps,mytype):
+	for ieos in range(len(EOSlist)):
+		myeos = eosDriver(EOSlist[ieos][1])
+                rhomax = (10.0e0**max(myeos.h5file['logrho']))*0.995
+		eostablename = EOSlist[ieos][0]+\
+		    "_eostable_NFBetaEq_pnu_"+mytype+".dat"
+		energy_shift = myeos.h5file['energy_shift'][0]
+		logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
+		eostable = zeros((nrhos,2))
+		energy_shift = energy_shift*eps_gf
+		rhotrap = 10.0e0**12.5
+		if(mytype == "c30p5"):
+			tempfunc = kentaDataTofLogRhoFit2()
+		elif(mytype == "c30p10"):
+			tempfunc = kentaDataTofLogRhoFit1()
+		elif(mytype == "c30p0"):
+			tempfunc = getTRollFunc(30.0,0.01,14.055,0.375)
+		elif(mytype == "c20p0"):
+			tempfunc = getTRollFunc(20.0,0.01,14.0-0.07,0.125)
+		elif(mytype == "c40p0"):
+			tempfunc = getTRollFunc(40.0,0.01,14.25-0.07,0.5)
+
+
+		for i in range(nrhos):
+			temp_cold = 0.5e0
+			temp = tempfunc(logrhos[i])
+			rho = 10.0**logrhos[i]
+			ylep = myeos.setBetaEqState({'rho': rho,
+						     'temp': temp_cold})
+			
+			ye = myeos.setNuFullBetaEqState({'rho': rho,
+							 'temp': temp},ylep,rhotrap)
+			print "Making EOS: %15.6E %15.6E %15.6E %15.6E" %\
+			    (10.0**logrhos[i],temp,ye,ylep)
+
+			(press,eps,munu) = myeos.query(['logpress','logenergy','munu'])
+			eta = munu/temp 
+			pnu = get_pnu(eta,temp,rho,rhotrap)
+			epsnu = 3.0e0*pnu / rho
+			# convert units
+			eostable[i,0] = log10((10.0**press+pnu) * press_gf)
+			eostable[i,1] = log10((10.0**eps+epsnu) * eps_gf)
+			if (i>0 and eostable[i,0] < eostable[i-1,0]):
+				eostable[i,0] = eostable[i-1,0]
+				eostable[i,0] = eostable[i-1,0]
+	
+		# write EOS table
+		eosfile=open(eostablename,"w")
+		esstring = "%18.9E\n" % (energy_shift/eps_gf)
+		eosfile.write(esstring)
+		for i in range(len(eostable[:,0])):
+			sline = "%15.6E %15.6E %15.6E\n" % \
+			    (logrhos[i],eostable[i,0],eostable[i,1])
+			eosfile.write(sline)
+		eosfile.close()
+			
+
+		del myeos
+
+
+
+
 def special_BetaEq(EOSlist,temps,yes,mytype):
 	for ieos in range(len(EOSlist)):
 		myeos = eosDriver(EOSlist[ieos][1])
@@ -123,7 +243,6 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 
 		logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
 		eostable = zeros((nrhos,2))
-		energy_shift = 0.0
 		for i in range(nrhos):
 			temp = tempfunc(logrhos[i])
 			ye = myeos.setBetaEqState({'rho': 10.0**logrhos[i],
@@ -154,15 +273,17 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 
 
 #fixed_ye_temp(EOSlist,temps,yes)
-#fixed_temp_betaeq(EOSlist,temps,yes)
 
-mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
-	   "c20p0_fixed_Ye", "c40p0_fixed_Ye"]
+#fixed_temp_betaeq(EOSlist,temps)
+
+fixed_temp_nfbetaeq_pnu(EOSlist,temps)
+
+#mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
+#	   "c20p0_fixed_Ye", "c40p0_fixed_Ye"]
 
 #for t in mytypes:
 #    special_fixed_Ye(EOSlist,temps,yes,t)
 
 mytypes2 = ["c20p0","c30p5","c30p10","c30p0","c40p0"]
-mytypes2 = ["c20p0"]
 for t in mytypes2:
-    special_BetaEq(EOSlist,temps,yes,t)
+    special_NFBetaEq_pnu(EOSlist,temps,t)
