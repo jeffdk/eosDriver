@@ -17,7 +17,8 @@ print files
 #script = 'c30p5'
 edToPlot = 2e15
 
-modelParamsTemplate = {'M': [], 'R': [], 'ed': [], 'rhobar': [], 'rhomax': [], 'rhoMfract': []}
+modelParamsTemplate = {'M': [], 'R': [], 'ed': [], 'rhobar': [], 'rhomax': [], 'rhoMfract': [],
+                       'mode': []}
 
 styles = {'3e+14': ':',
           '1e+15': '--',
@@ -76,6 +77,29 @@ def findPointOfHalfM(modelData, fract=0.5):
 
     return {'rho': rho, 'r': r, 'p': p}
 
+
+def fracDiff(a, b):
+    return a / b - 1.0
+
+def findDensityMode(modelData):
+    """
+    Finds the point at which r^2 \rho is maximized
+    Just does sequential search to do this
+    """
+    modeValue = -1e300
+    for i, rho in enumerate(modelData['rho']):
+        r = modelData['r'][i]
+        currentValue = rho * r ** 2
+        # Profile is increasing until it reaches the maximum
+        if currentValue < modeValue:
+            break
+        else:
+            modeValue = currentValue
+
+    p = modelData['p'][i]
+    m = modelData['m'][i]
+    return {'rho': rho, 'r': r, 'p': p, 'm': m}
+
 plt.figure()
 for file in files:
     parts = file.split('_')
@@ -111,6 +135,7 @@ for file in files:
     scripts[thisScript]['ed'].append(ed)
     scripts[thisScript]['rhomax'].append(rhomax)
     scripts[thisScript]['rhoMfract'].append(findPointOfHalfM(data, massFraction)['rho'])
+    scripts[thisScript]['mode'].append(thermalPressureSupport(rhomax, tfuncs[thisScript]))
     label = None
     if styles[str(ed)] == '-':
         label = thisScript
@@ -174,10 +199,11 @@ for script, value in scripts.items():
         value[key] = numpy.array(value[key])
 
 plt.subplot(2, 2, 1)
-xaxis = 'R'
-yaxis = 'rhoMfract'
-plt.xlabel('Radius (km)')
-plt.ylabel(r'$\rho_b$ at which $m/M = %s$' % massFraction)
+xaxis = 'mode'
+yaxis = 'M'
+plt.xlabel(r'$P/Pcold - 1$ at $\rho_{mode}$')
+plt.ylabel('Mass')
+cold = scripts['T=00010']
 for key, value in scripts.items():
     table = [col for col in value.values()]
     table = zip(*table)
@@ -185,9 +211,9 @@ for key, value in scripts.items():
     table = zip(*table)
     table = numpy.array(table)
     label = key
-    plt.scatter(value[xaxis], value[yaxis],
+    plt.scatter(value[xaxis], fracDiff(value[yaxis], cold[yaxis]),
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[2], table[5], color=colors[key])
+    #plt.plot(fracDiff(table[0], cold[xaxis]), fracDiff(table[2], cold[yaxis]), color=colors[key])
 plt.legend(loc=4)
 #plt.show()
 
@@ -223,7 +249,7 @@ for key, value in scripts.items():
     label = key
     plt.scatter(value[xaxis], value[yaxis],
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[3], table[1], color=colors[key])
+    plt.plot(table[4], table[1], color=colors[key])
 plt.legend(loc=2)
 #plt.show()
 
@@ -243,7 +269,7 @@ for key, value in scripts.items():
     print table
     plt.scatter(numpy.array(value[xaxis]) / numpy.array(value['rhomax']), value[yaxis],
                 c=colors[key], label=label, marker=symbols[key], s=100)
-    plt.plot(table[3] / table[4], table[1], color=colors[key])
+    plt.plot(table[4] / table[5], table[1], color=colors[key])
 plt.legend(loc=2)
 
 
