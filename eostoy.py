@@ -1,10 +1,9 @@
 #!/opt/local/bin/python
 
 import sys
-from units import *
 from numpy import linspace, zeros, log10, pi, sqrt
+from consts import CGS_H, CGS_EV, CGS_C, CGS_K
 from eosDriver import eosDriver
-import makeeostable
 
 
 # global constants
@@ -15,6 +14,14 @@ kb_erg = 1.380658e-16
 avo = 6.0221367e23
 hc_mevcm = 1.97326966e-11*2.0*pi
 pi = 3.14159265358979e0
+
+print hc_mevcm
+print CGS_H / CGS_EV / 1.0e6 * CGS_C
+print
+print kb_erg
+print CGS_K
+print myeos.setNuFullBetaEqState({'rho': 1.0e15, 'temp': 20.0})
+
 
 def get_ynu(eta,rho,temp):
     

@@ -13,7 +13,7 @@ import h5py
 import math
 import numpy
 import consts
-from consts import CGS_C
+from consts import CGS_C, CGS_H, CGS_EV, N_AVO
 from utils import multidimInterp, linInterp, solveRootBisect, \
     relativeError, lookupIndexBisect
 import scipy.optimize as scipyOptimize
@@ -231,7 +231,7 @@ class eosDriver(object):
 
     #todo: add option for picking different recovery methods
     def solveForQuantity(self, pointDict, quantity, target, bounds=None,
-                         function=(lambda x,q: q),
+                         function=(lambda x, q: q),
                          pointAsFunctionOfSolveVar=lambda x: None,
                          tol=1.e-6):
         """
@@ -248,7 +248,7 @@ class eosDriver(object):
         assert len(pointDict) > 1, "Solve is under-determined with less than 2 indVars!"
 
         solveRoot = scipyOptimize.brentq
-        solveRoot = solveRootBisect
+        #solveRoot = solveRootBisect
         solveVar = [indVar for indVar in self.indVars if indVar not in pointDict][0]
 
         #NOTE POINTASFUNCTIONOFSOLVERDICT MUST BE IN SAME FORMAT AS POINTDICT
@@ -295,6 +295,7 @@ class eosDriver(object):
         try:
             answer = solveRoot(quantityOfSolveVar, boundMin, boundMax, (), tol)
         except ValueError as err:
+            #TODO: WARNING THIS IS WRONG IF FUNCTION OPTION IS SPECIFIED
             print "Error in root solver solving for %s: " % solveVar, str(err)
             answer = self.findIndVarOfMinAbsQuantity(solveVar,
                                                      self.pointFromDict(pointDict),
@@ -377,6 +378,45 @@ class eosDriver(object):
                 closestIndVar = var
                 closestQuantity = abs(thisQuantity)
         return closestIndVar
+
+    def setNuFullBetaEqState(self, pointDict, Ylep=None):
+        """
+        Set's 'neutrino-full' beta equilibrium for a rho/temp point dict
+        and a lepton fraction.  If no lepton fraction defined, it will
+        be calculated as the value at cold neutrino-less beta eq.
+        """
+        assert isinstance(pointDict, dict)
+        assert 'ye' not in pointDict, "Can't set ye since we're solving for it!"
+        self.validatePointDict(pointDict)
+        
+        hc_mevcm = CGS_H / (CGS_EV * 1.e6) * CGS_C
+
+        logtempMin = self.h5file['logtemp'][0]
+        if Ylep is None:
+            coldBetaEqDict = pointDict.copy()
+            coldBetaEqDict['logtemp'] = logtempMin
+            Ylep = self.setBetaEqState(coldBetaEqDict)
+            #We don't actually want to use this state, so clear it to prevent
+            # unintended use
+            self.clearState()
+
+        temp = numpy.power(10.0, pointDict['logtemp'])
+        rho = numpy.power(10.0, pointDict['logrho'])
+
+        def YePlusYnu(ye, munu):
+
+            eta = munu / temp
+            n_nu = 4 * numpy.pi * (temp / hc_mevcm) ** 3 \
+                * 1.0 / 3.0 * eta * (eta ** 2 + numpy.pi ** 2)
+            Ynu = n_nu / (rho * N_AVO)
+
+            return ye + Ynu
+
+        currentYe = self.solveForQuantity(pointDict, 'munu', Ylep, function=YePlusYnu)
+        newDict = pointDict.copy()
+        newDict['ye'] = currentYe
+        self.setState(newDict)
+        return currentYe
 
     def rhobFromEnergyDensity(self, ed, pointDict):
         assert isinstance(pointDict, dict)
