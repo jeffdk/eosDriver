@@ -43,8 +43,8 @@ nothing = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
           ]
 
 yes = [0.1,0.15]
-tmin = 0.5
-tmax = 50
+tmin = 5
+tmax = 5
 dtemp = 0.5
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
@@ -132,10 +132,17 @@ def fixed_temp_nfbetaeq_pnu(EOSlist,temps):
 				ylep = myeos.setBetaEqState({'rho': rho,
 							     'temp': temp_cold})
 
-				ye = myeos.setNuFullBetaEqState({'rho': rho,
-							   'temp': temp},ylep,rhotrap)
-				print "Making EOS: %15.6E %15.6E %15.6E %15.6E" %\
-				    (10.0**logrhos[i],temp,ye,ylep)
+				ye2 = myeos.setBetaEqState({'rho': rho,
+							   'temp': temp})
+
+				ye1 = myeos.setNuFullBetaEqState({'rho': rho,
+								  'temp': temp},ylep,rhotrap)
+
+				ye = ye2*(1-exp(-rhotrap/rho)) + ye1*(exp(-rhotrap/rho))
+
+				
+				print "Making EOS: %15.6E %15.6E %15.6E %15.6E %15.6E %15.6E" %\
+				    (10.0**logrhos[i],temp,ye,ye1,ye2,ylep)
 
 				(press,eps,munu) = myeos.query(['logpress','logenergy','munu'])
 				eta = munu/temp 
