@@ -18,6 +18,8 @@ from utils import multidimInterp, linInterp, solveRootBisect, \
     relativeError, lookupIndexBisect
 import scipy.optimize as scipyOptimize
 
+#Plank's constant * speed of light in units of MeV * cm
+hc_mevcm = CGS_H / (CGS_EV * 1.e6) * CGS_C
 
 class eosDriver(object):
 
@@ -388,8 +390,6 @@ class eosDriver(object):
         assert isinstance(pointDict, dict)
         assert 'ye' not in pointDict, "Can't set ye since we're solving for it!"
         self.validatePointDict(pointDict)
-        
-        hc_mevcm = CGS_H / (CGS_EV * 1.e6) * CGS_C
 
         logtempMin = self.h5file['logtemp'][0]
         if Ylep is None:
@@ -694,10 +694,38 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe
 
+    def queryTrappedNuPress(self, rho_trap):
+        """
+        Queries the EOS table for the pressure due to trapped neutrinos.
+        See eq (2) & (3) of NSNSthermal paper. rho_trap should be in g/cm^3
+        Note: calls self.query!
+        """
+        # This is a way to recover the independent variables from the class
+        # given that they are ordered properly in setState
+        pointDict = dict()
+        for i, var in enumerate(self.indVars):
+            pointDict[var] = self.physicalState[i]
+        temp_mev = numpy.power(10.0, pointDict['logtemp'])
+        rho_cgs = numpy.power(10.0, pointDict['logrho'])
+
+        munu_mev = self.query('munu')
+        eta_nu = munu_mev / temp_mev
+
+        # First term
+        P_nu = 4.0 * numpy.pi / 3.0 * temp_mev ** 4.0 / hc_mevcm ** 3.0
+        # Fermi integral term
+        P_nu *= 21.0 / 60.0 * numpy.pi ** 4.0 \
+            + 0.5 * eta_nu ** 2 * (numpy.pi ** 2 + 0.5 * eta_nu ** 2)
+        # Decoupling at lower densities
+        P_nu *= numpy.exp(-rho_trap / rho_cgs)
+
+        # convert from MeV to erg and return
+        return P_nu * (CGS_EV * 1.0e6)
+
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantities, deLog10Result=False):
         """
-        Query's the EOS table looking for 'quantity' at set physical state
+        Queries the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
         """
         assert all([var is not None for var in self.physicalState]), \
