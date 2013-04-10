@@ -136,10 +136,14 @@ def fixed_temp_nfbetaeq_pnu(EOSlist,temps):
 							   'temp': temp})
 
 				ye1 = myeos.setNuFullBetaEqState({'rho': rho,
-								  'temp': temp},ylep,rhotrap)
+								  'temp': temp},ylep)
 
 				ye = ye2*(1-exp(-rhotrap/rho)) + ye1*(exp(-rhotrap/rho))
-
+				
+				
+				myeos.setState({'rho': rho,
+						'temp': temp, 
+						'ye' : ye})
 				
 				print "Making EOS: %15.6E %15.6E %15.6E %15.6E %15.6E %15.6E" %\
 				    (10.0**logrhos[i],temp,ye,ye1,ye2,ylep)
@@ -190,18 +194,28 @@ def special_NFBetaEq_pnu(EOSlist,temps,mytype):
 		elif(mytype == "c40p0"):
 			tempfunc = getTRollFunc(40.0,0.01,14.25-0.07,0.5)
 
-
 		for i in range(nrhos):
 			temp_cold = 0.5e0
 			temp = tempfunc(logrhos[i])
 			rho = 10.0**logrhos[i]
+
 			ylep = myeos.setBetaEqState({'rho': rho,
 						     'temp': temp_cold})
-			
-			ye = myeos.setNuFullBetaEqState({'rho': rho,
-							 'temp': temp},ylep,rhotrap)
-			print "Making EOS: %15.6E %15.6E %15.6E %15.6E" %\
-			    (10.0**logrhos[i],temp,ye,ylep)
+
+			ye2 = myeos.setBetaEqState({'rho': rho,
+						    'temp': temp})
+
+			ye1 = myeos.setNuFullBetaEqState({'rho': rho,
+							  'temp': temp},ylep)
+
+			ye = ye2*(1-exp(-rhotrap/rho)) + ye1*(exp(-rhotrap/rho))
+
+			myeos.setState({'rho': rho,
+					'temp': temp, 
+					'ye' : ye})
+				
+			print "Making EOS: %15.6E %15.6E %15.6E %15.6E %15.6E %15.6E" %\
+			    (10.0**logrhos[i],temp,ye,ye1,ye2,ylep)
 
 			(press,eps,munu) = myeos.query(['logpress','logenergy','munu'])
 			eta = munu/temp 
@@ -213,7 +227,7 @@ def special_NFBetaEq_pnu(EOSlist,temps,mytype):
 			if (i>0 and eostable[i,0] < eostable[i-1,0]):
 				eostable[i,0] = eostable[i-1,0]
 				eostable[i,0] = eostable[i-1,0]
-	
+
 		# write EOS table
 		eosfile=open(eostablename,"w")
 		esstring = "%18.9E\n" % (energy_shift/eps_gf)
@@ -283,7 +297,7 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 
 #fixed_temp_betaeq(EOSlist,temps)
 
-fixed_temp_nfbetaeq_pnu(EOSlist,temps)
+#fixed_temp_nfbetaeq_pnu(EOSlist,temps)
 
 #mytypes = ["c30p5_fixed_Ye","c30p10_fixed_Ye","c30p0_fixed_Ye",
 #	   "c20p0_fixed_Ye", "c40p0_fixed_Ye"]
