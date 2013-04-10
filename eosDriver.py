@@ -379,7 +379,7 @@ class eosDriver(object):
                 closestQuantity = abs(thisQuantity)
         return closestIndVar
 
-    def setNuFullBetaEqState(self, pointDict, Ylep=None, rhotrap=None):
+    def setNuFullBetaEqState(self, pointDict, Ylep=None):
         """
         Set's 'neutrino-full' beta equilibrium for a rho/temp point dict
         and a lepton fraction.  If no lepton fraction defined, it will
@@ -405,7 +405,7 @@ class eosDriver(object):
 
         def YePlusYnu(ye, munu):
 
-            eta = munu / temp * numpy.exp(-rhotrap/rho)
+            eta = munu / temp 
             n_nu = 4 * numpy.pi * (temp / hc_mevcm) ** 3 \
                 * 1.0 / 3.0 * eta * (eta ** 2 + numpy.pi ** 2)
             Ynu = n_nu / (rho * N_AVO) 
