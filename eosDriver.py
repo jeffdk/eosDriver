@@ -243,6 +243,8 @@ class eosDriver(object):
         Function lets the user specify an arbitrary function of the independent
         variable, x, and the quantity q as what we are solving for.
         Defaults to simply the quantity.
+        pointAsFunctionOfSolveVar lets you specify logtemp as a function of
+        solveVar.  Right now hardcoded so only uses logtemp :(
         """
         assert isinstance(pointDict, dict)
         self.validatePointDict(pointDict)
@@ -297,11 +299,13 @@ class eosDriver(object):
         try:
             answer = solveRoot(quantityOfSolveVar, boundMin, boundMax, (), tol)
         except ValueError as err:
-            #TODO: WARNING THIS IS WRONG IF FUNCTION OPTION IS SPECIFIED
+            #todo: note this is slightly incorrect if pointAsFunctionOfSolveVar is specified
             print "Error in root solver solving for %s: " % solveVar, str(err)
             answer = self.findIndVarOfMinAbsQuantity(solveVar,
                                                      self.pointFromDict(pointDict),
-                                                     quantity)
+                                                     quantity,
+                                                     function,
+                                                     target)
             print "Recovering with findIndVarOfMinAbsQuantity, answer: %s" % answer
         return answer
 
@@ -357,13 +361,18 @@ class eosDriver(object):
 
         return tuple(result)
 
-    def findIndVarOfMinAbsQuantity(self, indVar, point, quantity):
+    def findIndVarOfMinAbsQuantity(self, indVar, point, quantity,
+                                   function=(lambda x, q: q), target=0.0):
         """
         Given an independent variable indVar,
          The values of the other independent variables as point,
          and a dependent variable quantity,
         Find for what value of indVar's table grid-points is
         quantity closest to zero.  Uses simple sequential search.
+        Designed for use in conjunction with solveForQuantity.
+        If function is specified, it searches for
+        function(indVar, quantity closest to zero)
+        If target specified finds closest value to target
         """
         assert indVar in self.indVars, "Input indVar %s is not a valid indVar!" % indVar
 
@@ -373,9 +382,11 @@ class eosDriver(object):
 
         for i, var in enumerate(self.h5file[indVar][:]):
             index = self.tableIndexer(indVar, i)
-            thisQuantity = multidimInterp(point, indVarsTable,
-                                          self.h5file[quantity][index],
-                                          linInterp, 2)
+            thisQuantity = function(var,
+                                    multidimInterp(point, indVarsTable,
+                                                   self.h5file[quantity][index],
+                                                   linInterp, 2)
+                                    ) - target
             if abs(thisQuantity) < closestQuantity:
                 closestIndVar = var
                 closestQuantity = abs(thisQuantity)
