@@ -22,9 +22,10 @@ logrhos = numpy.arange(10.0,16.0,0.05)
 rhos = numpy.power(10.0,logrhos)
 
 midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
-#ls220.writeRotNSeosfile("test2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit2'}, 0.15)
+ls220.writeRotNSeosfile("test10WithNuYeLess.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit1'}, None, True)
 labels = []
 
+exit()
 for mid, scale in midsAndScales:
     mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
               logrhos,  kentaDataTofLogRhoFit1()(logrhos))

@@ -89,7 +89,7 @@ class eosDriver(object):
                 del pointDict[key]
 
 
-    def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
+    def writeRotNSeosfile(self, filename, tempPrescription, ye=None, addNeutrinoTerms=False):
         """
         Three temperature prescriptions available:
         1) Fix a quantity to determine T
@@ -114,7 +114,13 @@ class eosDriver(object):
         in UNDEFINED BEHAVIOR
 
         Not setting ye will give results for neutrinoless beta equilibrium.
-        NOT IMPLEMENTED YET
+        Setting ye to NuFull will give results for nu-full beta equlibrium.
+        Nu-full beta eq not supported with set const quantity!
+
+        Add neutrino terms will add neutrino pressure according to eq (3) of
+        NSNSThermal support paper via queryTrappedNuPress
+        It will also add the contribution of the neutrinos to the energy density
+        via eps_nu = 3 P_nu / rho
         """
         databaseOfManualFunctions = dict([(f.__name__, f) for f in
                                           (kentaDataTofLogRhoFit1,
@@ -134,7 +140,8 @@ class eosDriver(object):
         assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
         assert not(manualTofLogRhoPrescription and fixedQuantityPrescription), "See docstring!"
         assert not(manualTofLogRhoPrescription and isothermalPrescription), "See docstring!"
-
+        assert not(ye == 'NuFull' and fixedQuantityPrescription), \
+            "NuFull Beta-Eq not supported for fixedQuantityPrescription"
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
@@ -213,16 +220,24 @@ class eosDriver(object):
                 self.setConstQuantityAndBetaEqState({'rho': rho_b_CGS},
                                                     quantity,
                                                     target)
+            elif ye == 'NuFull':
+                self.setNuFullBetaEqState({'rho': rho_b_CGS, 'temp': temp})
             else:
                 self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
 
-            logpress, logeps = self.query(['logpress', 'logenergy'])
+            logpress, logeps, munu = self.query(['logpress', 'logenergy', 'munu'])
+            #print logpress, rho_b_CGS
+            P_nu = 0.0
+            if addNeutrinoTerms:
+                P_nu = P_nu_of(rho_b_CGS, temp, munu)
+            logpress = numpy.log10(numpy.power(10.0, logpress) + P_nu)
+            eps_nu = 3.0 * P_nu / rho_b_CGS
 
             #Total energy density (1.0 + eps) is in AGEO units
-
-            eps = (numpy.power(10.0, logeps) - self.energy_shift)\
+            eps = (numpy.power(10.0, logeps) - self.energy_shift + eps_nu)\
                   * consts.AGEO_ERG / consts.AGEO_GRAM
-
+            #print logpress
+            #print
             totalEnergyDensity = rho_b_CGS * (1.0 + eps)
             logTotalEnergyDensity = numpy.log10(totalEnergyDensity)
             #print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
@@ -705,7 +720,7 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe
 
-    def queryTrappedNuPress(self, rho_trap):
+    def queryTrappedNuPress(self, rho_trap=10. ** 12.5):
         """
         Queries the EOS table for the pressure due to trapped neutrinos.
         See eq (2) & (3) of NSNSthermal paper. rho_trap should be in g/cm^3
@@ -720,18 +735,8 @@ class eosDriver(object):
         rho_cgs = numpy.power(10.0, pointDict['logrho'])
 
         munu_mev = self.query('munu')
-        eta_nu = munu_mev / temp_mev
 
-        # First term
-        P_nu = 4.0 * numpy.pi / 3.0 * temp_mev ** 4.0 / hc_mevcm ** 3.0
-        # Fermi integral term
-        P_nu *= 21.0 / 60.0 * numpy.pi ** 4.0 \
-            + 0.5 * eta_nu ** 2 * (numpy.pi ** 2 + 0.5 * eta_nu ** 2)
-        # Decoupling at lower densities
-        P_nu *= numpy.exp(-rho_trap / rho_cgs)
-
-        # convert from MeV to erg and return
-        return P_nu * (CGS_EV * 1.0e6)
+        return P_nu_of(rho_cgs, temp_mev, munu_mev, rho_trap)
 
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantities, deLog10Result=False):
@@ -751,7 +756,7 @@ class eosDriver(object):
         answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
         if deLog10Result:
-            answers = numpy.power(10.0,answers)
+            answers = numpy.power(10.0, answers)
         return answers
 
     #just does trilinear interpolation; does NOT try and account/correct
@@ -813,12 +818,25 @@ class eosDriver(object):
         else:
             return answers
 
-        # print xs
-        # print x0
-        # print x1
-        # print numpy.shape(self.h5file[quantity])
-        # print self.h5file[quantity][tableIndex]
 
+def P_nu_of(rho_cgs, temp_mev, munu_mev, rho_trap=10 ** 12.5):
+    """
+    Returns trapped neutrino pressure as function of variables it
+    depends on.  Default trapping density is fiducial value of
+    10^12.5 g/cm^3.
+    """
+    eta_nu = munu_mev / temp_mev
+
+    # First term
+    P_nu = 4.0 * numpy.pi / 3.0 * temp_mev ** 4.0 / hc_mevcm ** 3.0
+    # Fermi integral term
+    P_nu *= 21.0 / 60.0 * numpy.pi ** 4.0 \
+            + 0.5 * eta_nu ** 2 * (numpy.pi ** 2 + 0.5 * eta_nu ** 2)
+    # Decoupling at lower densities
+    P_nu *= numpy.exp(-rho_trap / rho_cgs)
+
+    # convert from MeV to erg and return
+    return P_nu * (CGS_EV * 1.0e6)
 
 def getTRollFunc(Tmax, Tmin, mid, scale):
     """
