@@ -88,8 +88,7 @@ class eosDriver(object):
                 pointDict.update({'log' + key: numpy.log10(pointDict[key])})
                 del pointDict[key]
 
-
-    def writeRotNSeosfile(self, filename, tempPrescription, ye=None, addNeutrinoTerms=False):
+    def tempOfLog10RhobFuncFromPrescription(self, tempPrescription, ye):
         """
         Three temperature prescriptions available:
         1) Fix a quantity to determine T
@@ -112,15 +111,6 @@ class eosDriver(object):
 
         Please only set one or the other of these; doing otherwise may result
         in UNDEFINED BEHAVIOR
-
-        Not setting ye will give results for neutrinoless beta equilibrium.
-        Setting ye to NuFull will give results for nu-full beta equlibrium.
-        Nu-full beta eq not supported with set const quantity!
-
-        Add neutrino terms will add neutrino pressure according to eq (3) of
-        NSNSThermal support paper via queryTrappedNuPress
-        It will also add the contribution of the neutrinos to the energy density
-        via eps_nu = 3 P_nu / rho
         """
         databaseOfManualFunctions = dict([(f.__name__, f) for f in
                                           (kentaDataTofLogRhoFit1,
@@ -140,8 +130,6 @@ class eosDriver(object):
         assert not(isothermalPrescription and fixedQuantityPrescription), "See docstring!"
         assert not(manualTofLogRhoPrescription and fixedQuantityPrescription), "See docstring!"
         assert not(manualTofLogRhoPrescription and isothermalPrescription), "See docstring!"
-        assert not(ye == 'NuFull' and fixedQuantityPrescription), \
-            "NuFull Beta-Eq not supported for fixedQuantityPrescription"
 
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
@@ -196,6 +184,24 @@ class eosDriver(object):
                 # this will trigger use of setConstQuantityAndBetaEq
                 # in the output loop
                 pass
+        return tempOfLog10Rhob
+
+    def writeRotNSeosfile(self, filename, tempPrescription, ye=None, addNeutrinoTerms=False):
+        """
+        Not setting ye will give results for neutrinoless beta equilibrium.
+        Setting ye to NuFull will give results for nu-full beta equlibrium.
+        Nu-full beta eq not supported with set const quantity!
+
+        Add neutrino terms will add neutrino pressure according to eq (3) of
+        NSNSThermal support paper via queryTrappedNuPress
+        It will also add the contribution of the neutrinos to the energy density
+        via eps_nu = 3 P_nu / rho
+        """
+        assert not(ye == 'NuFull' and 'quantity' not in tempPrescription), \
+            "NuFull Beta-Eq not supported for fixedQuantityPrescription"
+
+        tempOfLog10Rhob = self.tempOfLog10RhobFuncFromPrescription(tempPrescription, ye)
+
         log10numberdensityMin = 2.67801536139756E+01
         log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
 
@@ -217,6 +223,8 @@ class eosDriver(object):
             if ye is None and temp is not None:
                 self.setBetaEqState({'rho':rho_b_CGS, 'temp': temp})
             elif ye is None and temp is None:
+                quantity = tempPrescription['quantity']
+                target = tempPrescription['target']
                 self.setConstQuantityAndBetaEqState({'rho': rho_b_CGS},
                                                     quantity,
                                                     target)
