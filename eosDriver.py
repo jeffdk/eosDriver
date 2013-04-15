@@ -139,7 +139,7 @@ class eosDriver(object):
         yeOfLog10Rhob = lambda ye: ye
 
         if isothermalPrescription:
-            print "Using isothermal prescription in writeRotNSeosfile"
+            print "Identified isothermal prescription in tempOfLog10RhobFuncFromPrescription"
             Tmax = tempPrescription['T']
             Tmin = tempPrescription['eosTmin']
             mid = tempPrescription['rollMid']
@@ -151,9 +151,9 @@ class eosDriver(object):
                 "funcName for manualTofLogRhoPrescription not recognized! If you have written it " \
                 "be sure to add it to databaseOfManualFunctions at the start of writeRotNSeosfile"
             tempOfLog10Rhob = databaseOfManualFunctions[funcName]()
-            print "Using manual prescription %s in writeRotNSeosfile" % funcName
+            print "Using manual prescription %s in tempOfLog10RhobFuncFromPrescription" % funcName
         elif fixedQuantityPrescription:
-            print "Using fixed quantity prescription in writeRotNSeosfile"
+            print "Using fixed quantity prescription in tempOfLog10RhobFuncFromPrescription"
             quantity = tempPrescription['quantity']
             target = tempPrescription['target']
             if ye is not None:
