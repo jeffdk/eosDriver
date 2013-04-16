@@ -71,6 +71,12 @@ class eosDriver(object):
         self.tableShapeDict = dict([(indVar, self.tableShape[i])
                                     for i, indVar in enumerate(self.indVars)])
 
+    def __del__(self):
+        """
+        Without this, shit went very bad with multithreading in the thermalSupport module
+        """
+        self.h5file.close()
+
     def validatePointDict(self, pointDict):
         """
         Checks if points in pointDict are valid indVars.
@@ -80,7 +86,11 @@ class eosDriver(object):
         assert isinstance(pointDict, dict)
         for key in pointDict.keys():
             assert key in self.indVars or key in self.indLogVars, \
-                "'%s' of your pointDict is not a valid independent variable!"  % key
+                "'%s' of your pointDict is not a valid independent variable!" \
+                "pointDict: %s \n" \
+                "self.indVars: %s \n" \
+                "self.indLogVars: %s" % (key, pointDict, self.indVars, self.indLogVars)
+
             assert isinstance(pointDict[key], float), \
                 "Wow, it seems you've tried to specify %s as something " \
                 "other than a float: %s" % (key, str(pointDict[key]))
@@ -136,7 +146,6 @@ class eosDriver(object):
         tol = 1.0e-6
 
         tempOfLog10Rhob = lambda lr: None
-        yeOfLog10Rhob = lambda ye: ye
 
         if isothermalPrescription:
             print "Identified isothermal prescription in tempOfLog10RhobFuncFromPrescription"
