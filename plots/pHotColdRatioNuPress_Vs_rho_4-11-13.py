@@ -10,8 +10,8 @@ startTime = datetime.datetime.now()
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-theEos = shen
-tableName = "HShen"
+theEos = ls220
+tableName = "LS220"
 matplotlib.rc('legend', fontsize=20)
 mpl.rcParams['figure.subplot.bottom'] = 0.16
 mpl.minorticks_on()
@@ -78,12 +78,12 @@ for i, troll in enumerate(tempRolls):
         thisT = tRollFunc(lr)
         theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
         pFull = theEos.query('logpress', deLog10Result=True)
-        theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+        theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
         pBetaFull = theEos.query('logpress', deLog10Result=True)
 
 
         ts.append(thisT)
-        theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+        theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
         lpsBeta.append(theEos.queryTrappedNuPress() / pBetaFull )
 
         theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
@@ -107,12 +107,12 @@ for lr in logrhos:
     rho = numpy.power(10.0, lr)
     theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
     pFull = theEos.query('logpress', deLog10Result=True)
-    theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+    theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
     pBetaFull = theEos.query('logpress', deLog10Result=True)
 
 
     ts.append(thisT)
-    theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+    theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
     lpsBeta.append(theEos.queryTrappedNuPress() / pBetaFull )
 
     theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
@@ -136,12 +136,12 @@ for lr in logrhos:
     rho = numpy.power(10.0, lr)
     theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
     pFull = theEos.query('logpress', deLog10Result=True)
-    theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+    theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
     pBetaFull = theEos.query('logpress', deLog10Result=True)
 
 
     ts.append(thisT)
-    theEos.setBetaEqState({'rho': rho, 'temp': thisT})
+    theEos.setNuFullBetaEqState({'rho': rho, 'temp': thisT})
     lpsBeta.append(theEos.queryTrappedNuPress() / pFull )
 
     theEos.setState({'rho': rho, 'ye': ye, 'temp': thisT})
