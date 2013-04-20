@@ -9,11 +9,10 @@ startTime = datetime.datetime.now()
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-theEos = shen
-tableName = "HShen"
+theEos = ls220
+tableName = "LS220"
 # matplotlib.rc('legend', fontsize=20)
 # mpl.rcParams['figure.subplot.bottom'] = 0.16
-# mpl.minorticks_on()
 # mpl.rcParams['figure.subplot.right'] = 0.85
 
 ye = 0.1
@@ -77,28 +76,31 @@ print pBetaColds
 ###
 # Setup plot environment
 #basics
-myfig = plt.figure(figsize=(12, 22))
+myfig = plt.figure(figsize=(12, 13))
 myfig.subplots_adjust(left=0.14)
-myfig.subplots_adjust(bottom=0.08)
+myfig.subplots_adjust(bottom=0.09)
 myfig.subplots_adjust(top=0.98)
 myfig.subplots_adjust(right=0.97)
 myfig.subplots_adjust(hspace=1.0e-10)
-
+xlims = [11.49, 15.51]
 
 ###
 # First plot: P/P(cold_NuLess) - 1
 plt.subplot(211)
-plt.xlim([11.0, 15.3])
+plt.minorticks_on()
+plt.xlim(xlims)
 
 fracDiff = lambda a, b: a / b - 1.0
 for i, color in enumerate(colors):
     plt.semilogy(logrhos, fracDiff(pHotNuFull[i], pBetaColds), c=color, label=legends[i])
-    plt.semilogy(logrhos, fracDiff(pHotNuLess[i], pBetaColds), c=color, ls='-.')
-    plt.semilogy(logrhos, fracDiff(pHotYeFixed[i], pBetaColds), c=color, ls='--')
+    plt.semilogy(logrhos, fracDiff(pHotNuLess[i], pBetaColds),
+                 c=color, ls='--', dashes=plot_defaults.goodDashDot)
+    plt.semilogy(logrhos, fracDiff(pHotYeFixed[i], pBetaColds),
+                 c=color, ls='--', dashes=plot_defaults.longDashes)
 
-plt.text(14.5, 1, tableName, fontsize=24)
-plt.legend(loc=4)
-plt.ylabel(r"$P_{`hot'}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=12)
+plt.text(14.4, 4, tableName, fontsize=26)
+plt.legend(loc=(.6, .1))
+plt.ylabel(r"$P_{\mathrm{hot}}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=11)
 plt.ylim([2e-4, 2e1])
 # hide x-axis labeling of upper panels
 ax = plt.gca()
@@ -106,22 +108,25 @@ for label in ax.get_xticklabels():
     label.set_visible(False)
 
 ###
-# Second plot: P/P(cold_NuLess) - 1
+# Second plot: P_nu/P(total)
 plt.subplot(212)
-plt.xlim([11.0, 15.3])
+plt.minorticks_on()
+plt.xlim(xlims)
 
 for i, color in enumerate(colors):
     plt.semilogy(logrhos, pNuNuFull[i]/pHotNuFull[i], c=color)
-    plt.semilogy(logrhos, pNuNuLess[i]/pHotNuLess[i], c=color, ls='-.')
-    plt.semilogy(logrhos, pNuYeFixed[i]/pHotYeFixed[i], c=color, ls='--')
+    plt.semilogy(logrhos, pNuNuLess[i]/pHotNuLess[i],
+                 c=color, ls='--', dashes=plot_defaults.goodDashDot)
+    plt.semilogy(logrhos, pNuYeFixed[i]/pHotYeFixed[i],
+                 c=color, ls='--', dashes=plot_defaults.longDashes)
 
-plt.ylim([2e-5, 5e-1])
-plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=12)
+plt.ylim([2e-5, 1.5e-1])
+plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=11)
 
-plttxt = "$\\nu$-full $\\beta$-equil. \&  $P_\\nu$: --,\,\,\,\, $\\nu$-less: -.,\,\,\,\, $Y_e=0.1$: -- --"
-plt.text(0.05, -0.2, plttxt, fontsize=26, horizontalalignment="left", transform=ax.transAxes)
+plttxt = "$\\nu$-full $\\beta$-equil, \&  $P_\\nu$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
+plt.text(0.05, -0.13, plttxt, fontsize=24, horizontalalignment="left", transform=ax.transAxes)
 
-plt.xlabel(r"$\mathrm{log10}(\rho_b$ [g/cm$^3$])", labelpad=12)
+plt.xlabel(r"$\mathrm{log10}(\rho_b$ [g/cm$^3$])", labelpad=11)
 
 print "TIME DIFFERENCE: ", datetime.datetime.now() - startTime
 plt.show()
