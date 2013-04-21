@@ -1,3 +1,10 @@
+
+# This script computes the EOS that is equivalent to what is
+# used by Paschalidis et al. in PRD 86, 064032 (2012), but
+# with the contribution of neutrinos corrected, which have
+# spin statistical weight = 1 (electrons/positrons have 2)
+
+
 #!/opt/local/bin/python
 import sys
 from units import *
@@ -15,7 +22,7 @@ rho_trap = 10.0**(12.5)
 def press(r,Tmev):
     ppoly = kappa * (r*rho_gf)**gamma * inv_press_gf
     ppairbase = pi**5 / h_times_clite**3 * mev_to_erg * 7.0/45.0 * Tmev**4
-    ppair = ppairbase * (1 + 7.0/8.0*(2 + 3)*exp(-rho_trap/r))
+    ppair = ppairbase * (1 + 7.0/8.0*(2 + 3*exp(-rho_trap/r)))
     ppgas = r/massn_cgs * Tmev * mev_to_erg
     return ppoly,ppair,ppgas
 
