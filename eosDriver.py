@@ -472,7 +472,7 @@ class eosDriver(object):
         result = self.solveForQuantity(pointDict, 'logenergy', ed,
                                        bounds=(4., 16.),
                                        function=edFunc)
-        return result
+        return numpy.power(10.0, result)
 
 
     def rhobFromEnergyDensityWithTofRho(self, ed, ye, TofRhoFunc):
@@ -484,7 +484,7 @@ class eosDriver(object):
                                        bounds=(4., 16.),
                                        function=edFunc,
                                        pointAsFunctionOfSolveVar=tempFunc)
-        return result
+        return numpy.power(10.0, result)
 
     def setState(self, pointDict):
         """
