@@ -277,12 +277,19 @@ class eosDriver(object):
         Defaults to simply the quantity.
         pointAsFunctionOfSolveVar lets you specify logtemp as a function of
         solveVar.  Right now hardcoded so only uses logtemp :(
+        Warning: Clears physical state!
         """
         assert isinstance(pointDict, dict)
-        self.validatePointDict(pointDict)
+
         assert len(pointDict) < 3, "Can't solve anything if you've specified more than 2 indVars!"
         assert len(pointDict) > 1, "Solve is under-determined with less than 2 indVars!"
-
+        #todo Fix this hack for BetaEq
+        setBetaEqInSolve = False
+        if 'ye' in pointDict and pointDict['ye'] == 'BetaEq':
+            self.clearState()
+            setBetaEqInSolve = True
+            pointDict['ye'] = 0.1  # do not like this hack; necessary to pass pointDict validation
+        self.validatePointDict(pointDict)
         solveRoot = scipyOptimize.brentq
         #solveRoot = solveRootBisect
         solveVar = [indVar for indVar in self.indVars if indVar not in pointDict][0]
@@ -320,8 +327,14 @@ class eosDriver(object):
                 #print indVar, value
                 point.append(value)
             point = tuple(point)
-            #print point
-            #print indVarsTable
+            if setBetaEqInSolve:
+                tempPointDict = {self.indVars[i]: point[i]
+                                 for i in range(len(self.indVars)) if not self.indVars[i] == 'ye'}
+                yeForSolve = self.setBetaEqState(tempPointDict)
+                tempPointDict.update({'ye': yeForSolve})
+                point = self.pointFromDict(tempPointDict)
+                self.clearState()
+                del tempPointDict
             answer = function(x, multidimInterp(point, indVarsTable,
                                                 self.h5file[quantity][...],
                                                 linInterp, 2)
@@ -339,6 +352,7 @@ class eosDriver(object):
                                                      function,
                                                      target)
             print "Recovering with findIndVarOfMinAbsQuantity, answer: %s" % answer
+        self.clearState()
         return answer
 
     def tableIndexer(self, indVar, i):

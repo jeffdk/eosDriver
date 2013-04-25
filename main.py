@@ -22,10 +22,10 @@ logrhos = numpy.arange(10.0,16.0,0.05)
 rhos = numpy.power(10.0,logrhos)
 
 midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
-ls220.writeRotNSeosfile("test10WithNuYeLess-2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit1'}, None, True)
+#ls220.writeRotNSeosfile("test10WithNuYeLess-2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit1'}, None, True)
 labels = []
 
-exit()
+
 for mid, scale in midsAndScales:
     mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
               logrhos,  kentaDataTofLogRhoFit1()(logrhos))
@@ -40,20 +40,20 @@ mpl.xlabel(r"log10($\rho_b$ CGS)")
 ye = 0.1
 for ed in [3.e14,1.e15,2.e15]:
     led = numpy.log10(ed)
-    print pow(10., shen.rhobFromEnergyDensityWithTofRho(ed, ye, getTRollFunc(20., .01, 13.93,.25)))
+    print shen.rhobFromEnergyDensityWithTofRho(ed, ye, getTRollFunc(20., .01, 13.93,.25))
     tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit2()(x))
     tempFunc = lambda x: -2.0
     tempFunc = lambda x: numpy.log10(getTRollFunc(20., .01, 13.93,.25)(x))
     edFunc = lambda x, q: numpy.power(10.0,x) * (1.0 + (numpy.power(10.0, q) - shen.energy_shift)/ CGS_C**2)
-    result = shen.solveForQuantity({'logtemp': 1., 'ye': ye}, 'logenergy', ed,
+    result = shen.solveForQuantity({'logtemp': 1., 'ye': 'BetaEq'}, 'logenergy', ed,
                                    bounds=(4.,16.),
                                    pointAsFunctionOfSolveVar=tempFunc,
                                    function=edFunc)
-    shen.setState({'logtemp': tempFunc(result), 'ye': ye, 'logrho': result})
+    shen.setBetaEqState({'logtemp': tempFunc(result), 'logrho': result})
     eps = (numpy.power(10.0, shen.query('logenergy')) - shen.energy_shift) / CGS_C**2
 
     print ed,"\t", numpy.power(10.0, result)
-    print pow(10., shen.rhobFromEnergyDensity(ed, {'logtemp': tempFunc(result), 'ye': ye}))
+    print shen.rhobFromEnergyDensity(ed, {'logtemp': tempFunc(numpy.log10(result)), 'ye': ye})
 
     print "\t", numpy.power(10.0, result)* (1.0 + eps)
 exit()
