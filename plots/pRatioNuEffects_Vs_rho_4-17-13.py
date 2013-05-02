@@ -101,7 +101,7 @@ for i, color in enumerate(colors):
 
 
 plt.text(14.4, 4, tableName, fontsize=30)
-plt.legend(loc=(.52, .08))
+plt.legend(loc=(.52, .00), labelspacing=0.5)
 plt.ylabel(r"$P_{\mathrm{hot}}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=10)
 plt.ylim([2e-4, 2e1])
 # hide x-axis labeling of upper panels
@@ -128,14 +128,15 @@ for i, color in enumerate(colors):
         plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.longDashes,
                      label="$Y_e=0.1$")
 
-plt.ylim([2e-5, 1.5e-1])
+plt.ylim([2e-5, 5e-1])
 plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=10)
 
 #plttxt = "$\\nu$-full $\\beta$-Eq$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
 #plt.text(0.05, -0.13, plttxt, fontsize=24, horizontalalignment="left", transform=ax.transAxes)
 
 plt.xlabel(r"$\mathrm{log_{10}}(\rho_b$ [g cm$^{-3}$])", labelpad=11)
-plt.legend(loc=(.46, .07))
+
+plt.legend(loc=(.52, .73), labelspacing=0.2)
 print "TIME DIFFERENCE: ", datetime.datetime.now() - startTime
 plt.show()
 exit()
