@@ -76,14 +76,15 @@ print pBetaColds
 ###
 # Setup plot environment
 #basics
-myfig = plt.figure(figsize=(12, 13))
-myfig.subplots_adjust(left=0.14)
+myfig = plt.figure(figsize=(10, 15))
+myfig.subplots_adjust(left=0.16)
 myfig.subplots_adjust(bottom=0.09)
 myfig.subplots_adjust(top=0.98)
 myfig.subplots_adjust(right=0.97)
 myfig.subplots_adjust(hspace=1.0e-10)
 xlims = [11.49, 15.51]
-
+matplotlib.rc('legend', fontsize=25)
+matplotlib.rc('legend', handletextpad=.2)
 ###
 # First plot: P/P(cold_NuLess) - 1
 plt.subplot(211)
@@ -98,9 +99,10 @@ for i, color in enumerate(colors):
     plt.semilogy(logrhos, fracDiff(pHotYeFixed[i], pBetaColds),
                  c=color, ls='--', dashes=plot_defaults.longDashes)
 
-plt.text(14.4, 4, tableName, fontsize=26)
-plt.legend(loc=(.6, .1))
-plt.ylabel(r"$P_{\mathrm{hot}}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=11)
+
+plt.text(14.4, 4, tableName, fontsize=30)
+plt.legend(loc=(.52, .08))
+plt.ylabel(r"$P_{\mathrm{hot}}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=10)
 plt.ylim([2e-4, 2e1])
 # hide x-axis labeling of upper panels
 ax = plt.gca()
@@ -119,15 +121,21 @@ for i, color in enumerate(colors):
                  c=color, ls='--', dashes=plot_defaults.goodDashDot)
     plt.semilogy(logrhos, pNuYeFixed[i]/pHotYeFixed[i],
                  c=color, ls='--', dashes=plot_defaults.longDashes)
+    if color == 'k':
+        plt.semilogy([1], [1], c='k', label="$\\nu$-full $\\beta$-Eq")
+        plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.goodDashDot,
+                     label="$\\nu$-less $\\beta$-Eq")
+        plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.longDashes,
+                     label="$Y_e=0.1$")
 
 plt.ylim([2e-5, 1.5e-1])
-plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=11)
+plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=10)
 
-plttxt = "$\\nu$-full $\\beta$-equil, \&  $P_\\nu$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
-plt.text(0.05, -0.13, plttxt, fontsize=24, horizontalalignment="left", transform=ax.transAxes)
+#plttxt = "$\\nu$-full $\\beta$-Eq$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
+#plt.text(0.05, -0.13, plttxt, fontsize=24, horizontalalignment="left", transform=ax.transAxes)
 
-plt.xlabel(r"$\mathrm{log10}(\rho_b$ [g/cm$^3$])", labelpad=11)
-
+plt.xlabel(r"$\mathrm{log_{10}}(\rho_b$ [g cm$^{-3}$])", labelpad=11)
+plt.legend(loc=(.46, .07))
 print "TIME DIFFERENCE: ", datetime.datetime.now() - startTime
 plt.show()
 exit()
