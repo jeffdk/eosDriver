@@ -9,8 +9,8 @@ startTime = datetime.datetime.now()
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-theEos = ls220
-tableName = "LS220"
+theEos = shen
+tableName = "HShen"
 # matplotlib.rc('legend', fontsize=20)
 # mpl.rcParams['figure.subplot.bottom'] = 0.16
 # mpl.rcParams['figure.subplot.right'] = 0.85
@@ -100,8 +100,17 @@ for i, color in enumerate(colors):
                  c=color, ls='--', dashes=plot_defaults.longDashes)
 
 
-plt.text(14.4, 4, tableName, fontsize=30)
-plt.legend(loc=(.52, .00), labelspacing=0.5)
+
+legend1 = plt.legend(loc=(.52, .05), labelspacing=0.5)
+
+p1, = plt.semilogy([1], [1], c='k')
+p2, = plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.goodDashDot)
+p3, = plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.longDashes)
+legend2 = plt.legend((p1, p2, p3), ("$\\nu$-full $\\beta$-eq.",
+                                    "$\\nu$-less $\\beta$-eq.",
+                                    "$Y_e=0.1$"),
+                     loc=(.65, .75), labelspacing=0.1)
+plt.gca().add_artist(legend1)
 plt.ylabel(r"$P_{\mathrm{hot}}/P_{\nu\mathrm{-less, cold}} - 1$", labelpad=10)
 plt.ylim([2e-4, 2e1])
 # hide x-axis labeling of upper panels
@@ -121,14 +130,8 @@ for i, color in enumerate(colors):
                  c=color, ls='--', dashes=plot_defaults.goodDashDot)
     plt.semilogy(logrhos, pNuYeFixed[i]/pHotYeFixed[i],
                  c=color, ls='--', dashes=plot_defaults.longDashes)
-    if color == 'k':
-        plt.semilogy([1], [1], c='k', label="$\\nu$-full $\\beta$-Eq")
-        plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.goodDashDot,
-                     label="$\\nu$-less $\\beta$-Eq")
-        plt.semilogy([1], [1], c='k', ls='--', dashes=plot_defaults.longDashes,
-                     label="$Y_e=0.1$")
 
-plt.ylim([2e-5, 5e-1])
+plt.ylim([2e-5, 1.5e-1])
 plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=10)
 
 #plttxt = "$\\nu$-full $\\beta$-Eq$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
@@ -137,6 +140,7 @@ plt.ylabel(r"$P_{\nu}/P_\mathrm{total}$", labelpad=10)
 plt.xlabel(r"$\mathrm{log_{10}}(\rho_b$ [g cm$^{-3}$])", labelpad=11)
 
 plt.legend(loc=(.52, .73), labelspacing=0.2)
+plt.text(12, 4e-2, tableName, fontsize=30)
 print "TIME DIFFERENCE: ", datetime.datetime.now() - startTime
 plt.show()
 exit()
