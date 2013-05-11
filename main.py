@@ -36,12 +36,20 @@ mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
 
+
 #print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
 #print ls220.solveForQuantity({'rho': 1e15, 'ye': 0.1}, 'entropy', 1., bounds=None)
 ye = 'BetaEq'
+# shen.resetCachedRhobVsEds(getTRollFunc(20., .01, 13.93,.25), ye)
+# print shen.cachedRhobVsEd
+# mpl.loglog(numpy.power(10.0, shen.cachedRhobVsEd[1]), (numpy.power(10.0,shen.cachedRhobVsEd[0])-numpy.power(10.0, shen.cachedRhobVsEd[1]))/numpy.power(10.0, shen.cachedRhobVsEd[1]))
+# mpl.show()
+# exit()
+shen.resetCachedBetaEqYeVsRhobs(getTRollFunc(20., .01, 13.93,.25), 4., 16.)
+shen.resetCachedRhobVsEds(getTRollFunc(20., .01, 13.93,.25), ye)
 for ed in [3.e14,1.e15,2.e15]:
     led = numpy.log10(ed)
-    shen.resetCachedBetaEqYeVsRhobs(getTRollFunc(20., .01, 13.93,.25), 4., 16.)
+
     print shen.rhobFromEnergyDensityWithTofRho(ed, ye, getTRollFunc(20., .01, 13.93,.25))
     tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit2()(x))
     tempFunc = lambda x: -2.0
@@ -51,6 +59,8 @@ for ed in [3.e14,1.e15,2.e15]:
                                    bounds=(4.,16.),
                                    pointAsFunctionOfSolveVar=tempFunc,
                                    function=edFunc)
+    cachedResult = shen.rhobFromEdCached(ed)
+    print "result, cachedResult: ", numpy.power(10.0, result), cachedResult
     shen.setBetaEqState({'logtemp': tempFunc(result), 'logrho': result})
     eps = (numpy.power(10.0, shen.query('logenergy')) - shen.energy_shift) / CGS_C**2
 

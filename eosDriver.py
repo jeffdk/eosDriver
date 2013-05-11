@@ -55,6 +55,13 @@ class eosDriver(object):
     # tempFunc prescriptions you'll get the wrong answer mmkay
     cachedBetaEqYeVsRhos = None
 
+    #tuple of Ed Rho_b points set given a temp prescription
+    # used to save much time in solveForQuantity
+    # YOU MUST MANUALLY SET IT with
+    # You must then be careful; if you forget to reset it upon changing
+    # tempFunc prescriptions you'll get the wrong answer mmkay
+    cachedRhobVsEd = None
+
     def __init__(self, tableFilename):
         """
         eosDriver class constructor takes a h5 file filename for a
@@ -495,7 +502,7 @@ class eosDriver(object):
 
     def getBetaEqYeVsRhobTable(self, logtempFunc, logrhoMin=-1e300,  logrhoMax=1e300):
         """
-        Given a temp(logrho) function, compute the ye for beta equilibrium at
+        Given a logtemp(logrho) function, compute the ye for beta equilibrium at
         all logrho gridpoints.  If rhoMax/rhoMin specified only get those rhos
         """
         assert logrhoMax > logrhoMin, "Really?  I mean, really?"
@@ -521,6 +528,49 @@ class eosDriver(object):
     def resetCachedBetaEqYeVsRhobs(self, tempFunc, *args):
         logtempFunc = lambda lr: numpy.log10(tempFunc(lr))
         self.cachedBetaEqYeVsRhos = self.getBetaEqYeVsRhobTable(logtempFunc, *args)
+
+    def getRhobVsEdTable(self, logtempFunc, ye, logrhoMin=-1e300,  logrhoMax=1e300):
+        """
+        Given a logtemp(logrho) function, compute the ye for beta equilibrium at
+        all logrho gridpoints.  If rhoMax/rhoMin specified only get those rhos
+        """
+        edFunc = lambda x, q: numpy.power(10.0, x) \
+                            * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
+        assert logrhoMax > logrhoMin, "Really?  I mean, really?"
+        boundsFudgeFactor = 0.1  # In units of logrho
+        logrhos = []
+        #print logrhoMin, logrhoMax
+        eds = []
+        for lr in self.h5file['logrho'][:]:
+            if lr >= logrhoMax + boundsFudgeFactor:
+                break
+            # 0.1 fudge factor
+            if lr >= logrhoMin - boundsFudgeFactor:
+                thislogT = logtempFunc(lr)
+                logrhos.append(lr)
+                if ye == 'BetaEq':
+                    self.setBetaEqState({'logrho': lr, 'logtemp': thislogT})
+                else:
+                    self.setState({'logrho': lr, 'logtemp': thislogT})
+                eds.append(edFunc(lr, self.query('logenergy')))
+            else:
+                continue
+
+        return numpy.log10(eds), logrhos
+
+    def resetCachedRhobVsEds(self, tempFunc, ye, *args):
+        logtempFunc = lambda lr: numpy.log10(tempFunc(lr))
+        self.cachedRhobVsEd = self.getRhobVsEdTable(logtempFunc, ye, *args)
+
+    def rhobFromEdCached(self, ed):
+        """
+        Does linear interpolation in logspace of self.cachedRhobVsEd
+        to invert rhob from given ed
+        """
+        answer = linInterp(numpy.log10(ed),
+                           self.cachedRhobVsEd[0],
+                           self.cachedRhobVsEd[1])
+        return numpy.power(10.0, answer)
 
     def rhobFromEnergyDensity(self, ed, pointDict):
         assert isinstance(pointDict, dict)
