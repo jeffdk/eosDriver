@@ -9,14 +9,16 @@ startTime = datetime.datetime.now()
 ls220 = eosDriver('/home/jeff/work/LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
 shen = eosDriver('/home/jeff/work/HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5')
 
-theEos = shen
-tableName = "HShen"
+theEos = ls220
+tableName = "LS220"
 # matplotlib.rc('legend', fontsize=20)
 # mpl.rcParams['figure.subplot.bottom'] = 0.16
 # mpl.rcParams['figure.subplot.right'] = 0.85
 
 ye = 0.1
 tcold = 0.01
+
+addP_nuToNuFullPress = False
 
 ##
 #Grid for plotting points
@@ -31,7 +33,7 @@ tempFuncs = [getTRollFunc(params[0], tcold, params[1], params[2]) for params in 
 tempFuncs.append(kentaDataTofLogRhoFit1())
 tempFuncs.append(kentaDataTofLogRhoFit2())
 
-tempFuncs = [lambda x: 0.01]
+tempFuncs = [lambda x: 20.0]
 colors = ['k']
 ###
 # First calculate all the pressures we want
@@ -42,22 +44,25 @@ pHotYeFixed = [[] for unused in colors]
 pNuNuFull = [[] for unused in colors]
 pNuNuLess = [[] for unused in colors]
 pNuYeFixed = [[] for unused in colors]
-yeColds = []
+nuLessYes = []
+nuFullYes = []
 for lr in logrhos:
     coldYe = theEos.setBetaEqState({'logrho': lr, 'temp': tcold})
     pBetaColds.append(theEos.query('logpress', deLog10Result=True))
-    yeColds.append(coldYe)
     for i, tRollFunc in enumerate(tempFuncs):
         thisT = tRollFunc(lr)
         print thisT,
 
         nuFullYe = theEos.setNuFullBetaEqState({'logrho': lr, 'temp': thisT}, coldYe)
+        nuFullYes.append(nuFullYe)
         pHotNuFull[i].append(theEos.query('logpress', deLog10Result=True))
         theEos.setState({'logrho': lr, 'temp': thisT, 'ye': nuFullYe})
         pNuNuFull[i].append(theEos.queryTrappedNuPress())
-        pHotNuFull[i][-1] += pNuNuFull[i][-1] #Add neutrino pressure to hotNuFull
+        if addP_nuToNuFullPress:
+            pHotNuFull[i][-1] += pNuNuFull[i][-1] #Add neutrino pressure to hotNuFull
 
         nuLessYe = theEos.setBetaEqState({'logrho': lr, 'temp': thisT})
+        nuLessYes.append(nuLessYe)
         pHotNuLess[i].append(theEos.query('logpress', deLog10Result=True))
         theEos.setState({'logrho': lr, 'temp': thisT, 'ye': nuLessYe})
         pNuNuLess[i].append(theEos.queryTrappedNuPress())
@@ -68,7 +73,7 @@ for lr in logrhos:
         pNuYeFixed[i].append(theEos.queryTrappedNuPress())
 
     print
-yeColds = numpy.array(yeColds)
+nuLessYes = numpy.array(nuLessYes)
 pBetaColds = numpy.array(pBetaColds)
 pHotNuFull = numpy.array(pHotNuFull)
 pHotNuLess = numpy.array(pHotNuLess)
@@ -98,7 +103,7 @@ plt.xlim(xlims)
 
 fracDiff = lambda a, b: numpy.abs(a / b)
 for i, color in enumerate(colors):
-    #plt.plot(logrhos, fracDiff(pHotNuFull[i], pHotYeFixed[i]), c=color, label=legends[i])
+    plt.plot(logrhos, fracDiff(pHotNuFull[i], pHotYeFixed[i]), c=color, label=legends[i])
     plt.plot(logrhos, fracDiff(pHotNuLess[i], pHotYeFixed[i]),
                  c=color, ls='--', dashes=plot_defaults.goodDashDot)
 
@@ -115,7 +120,7 @@ legend2 = plt.legend((p1, p2, p3), ("$\\nu$-full $\\beta$-eq.",
                                     "$Y_e=0.1$"),
                      loc=(.65, .75), labelspacing=0.1)
 #plt.gca().add_artist(legend1)
-plt.ylabel(r"$P_{\mathrm{cold,Eq}}/P_{\mathrm{cold,} Y_e=0.1}$", labelpad=10)
+plt.ylabel(r"$P_{\mathrm{20MeV,Eq}}/P_{\mathrm{20MeV,} Y_e=0.1}$", labelpad=10)
 plt.ylim([0.35, 1.9])
 # hide x-axis labeling of upper panels
 ax = plt.gca()
@@ -129,12 +134,12 @@ plt.minorticks_on()
 plt.xlim(xlims)
 
 for i, color in enumerate(colors):
-    plt.plot(logrhos, yeColds, c=color)
-
+    plt.plot(logrhos, nuLessYes, c=color, ls='--', dashes=plot_defaults.goodDashDot)
+    plt.plot(logrhos, nuFullYes, c=color)
 plt.plot([1,1e15], [.1,.1], c='g', ls=':')
 
 #plt.ylim([2e-5, 1.5e-1])
-plt.ylabel(r"$Y_e$ beta-eq", labelpad=10)
+plt.ylabel(r"$Y_e$ beta-eq 20MeV", labelpad=10)
 
 #plttxt = "$\\nu$-full $\\beta$-Eq$: -- \,\,\,\, $\\nu$-less: -. \,\,\,\, $Y_e=0.1$: -- --"
 #plt.text(0.05, -0.13, plttxt, fontsize=24, horizontalalignment="left", transform=ax.transAxes)
