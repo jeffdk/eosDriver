@@ -3,7 +3,7 @@ module TOV
   implicit none
 
 
-  integer,parameter :: N = 40000
+  integer,parameter :: N = 60000
   real*8 :: dr = 200.0d0 ! in cm
   real*8 :: TOVphi(N) !nothing
   real*8 :: TOVgmass(N) !in grams
