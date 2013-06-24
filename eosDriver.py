@@ -18,6 +18,8 @@ from utils import multidimInterp, linInterp, solveRootBisect, \
     relativeError, lookupIndexBisect
 import scipy.optimize as scipyOptimize
 
+#Plank's constant * speed of light in units of MeV * cm
+hc_mevcm = CGS_H / (CGS_EV * 1.e6) * CGS_C
 
 class eosDriver(object):
 
@@ -46,6 +48,20 @@ class eosDriver(object):
     #so that 'logenergy' is always positive
     energy_shift = None
 
+    #tuple of Rho_b Ye points set for BetaEq given a temp prescription
+    # used to save much time in solveForQuantity with BetaEq set
+    # YOU MUST MANUALLY SET IT with resetCachedBetaEqYeVsRhobs
+    # You must then be careful; if you forget to reset it upon changing
+    # tempFunc prescriptions you'll get the wrong answer mmkay
+    cachedBetaEqYeVsRhos = None
+
+    #tuple of Ed Rho_b points set given a temp prescription
+    # used to save much time in solveForQuantity
+    # YOU MUST MANUALLY SET IT with
+    # You must then be careful; if you forget to reset it upon changing
+    # tempFunc prescriptions you'll get the wrong answer mmkay
+    cachedRhobVsEd = None
+
     def __init__(self, tableFilename):
         """
         eosDriver class constructor takes a h5 file filename for a
@@ -69,6 +85,12 @@ class eosDriver(object):
         self.tableShapeDict = dict([(indVar, self.tableShape[i])
                                     for i, indVar in enumerate(self.indVars)])
 
+    def __del__(self):
+        """
+        Without this, shit went very bad with multithreading in the thermalSupport module
+        """
+        self.h5file.close()
+
     def validatePointDict(self, pointDict):
         """
         Checks if points in pointDict are valid indVars.
@@ -78,7 +100,11 @@ class eosDriver(object):
         assert isinstance(pointDict, dict)
         for key in pointDict.keys():
             assert key in self.indVars or key in self.indLogVars, \
-                "'%s' of your pointDict is not a valid independent variable!"  % key
+                "'%s' of your pointDict is not a valid independent variable!" \
+                "pointDict: %s \n" \
+                "self.indVars: %s \n" \
+                "self.indLogVars: %s" % (key, pointDict, self.indVars, self.indLogVars)
+
             assert isinstance(pointDict[key], float), \
                 "Wow, it seems you've tried to specify %s as something " \
                 "other than a float: %s" % (key, str(pointDict[key]))
@@ -86,8 +112,7 @@ class eosDriver(object):
                 pointDict.update({'log' + key: numpy.log10(pointDict[key])})
                 del pointDict[key]
 
-
-    def writeRotNSeosfile(self, filename, tempPrescription, ye=None):
+    def tempOfLog10RhobFuncFromPrescription(self, tempPrescription, ye):
         """
         Three temperature prescriptions available:
         1) Fix a quantity to determine T
@@ -110,9 +135,6 @@ class eosDriver(object):
 
         Please only set one or the other of these; doing otherwise may result
         in UNDEFINED BEHAVIOR
-
-        Not setting ye will give results for neutrinoless beta equilibrium.
-        NOT IMPLEMENTED YET
         """
         databaseOfManualFunctions = dict([(f.__name__, f) for f in
                                           (kentaDataTofLogRhoFit1,
@@ -133,16 +155,14 @@ class eosDriver(object):
         assert not(manualTofLogRhoPrescription and fixedQuantityPrescription), "See docstring!"
         assert not(manualTofLogRhoPrescription and isothermalPrescription), "See docstring!"
 
-
         #defines 1D root solver to use in routine
         solveRoot = scipyOptimize.brentq  # solveRootBisect
         tol = 1.0e-6
 
         tempOfLog10Rhob = lambda lr: None
-        yeOfLog10Rhob = lambda ye: ye
 
         if isothermalPrescription:
-            print "Using isothermal prescription in writeRotNSeosfile"
+            print "Identified isothermal prescription in tempOfLog10RhobFuncFromPrescription"
             Tmax = tempPrescription['T']
             Tmin = tempPrescription['eosTmin']
             mid = tempPrescription['rollMid']
@@ -154,9 +174,9 @@ class eosDriver(object):
                 "funcName for manualTofLogRhoPrescription not recognized! If you have written it " \
                 "be sure to add it to databaseOfManualFunctions at the start of writeRotNSeosfile"
             tempOfLog10Rhob = databaseOfManualFunctions[funcName]()
-            print "Using manual prescription %s in writeRotNSeosfile" % funcName
+            print "Using manual prescription %s in tempOfLog10RhobFuncFromPrescription" % funcName
         elif fixedQuantityPrescription:
-            print "Using fixed quantity prescription in writeRotNSeosfile"
+            print "Using fixed quantity prescription in tempOfLog10RhobFuncFromPrescription"
             quantity = tempPrescription['quantity']
             target = tempPrescription['target']
             if ye is not None:
@@ -187,6 +207,24 @@ class eosDriver(object):
                 # this will trigger use of setConstQuantityAndBetaEq
                 # in the output loop
                 pass
+        return tempOfLog10Rhob
+
+    def writeRotNSeosfile(self, filename, tempPrescription, ye=None, addNeutrinoTerms=False):
+        """
+        Not setting ye will give results for neutrinoless beta equilibrium.
+        Setting ye to NuFull will give results for nu-full beta equlibrium.
+        Nu-full beta eq not supported with set const quantity!
+
+        Add neutrino terms will add neutrino pressure according to eq (3) of
+        NSNSThermal support paper via queryTrappedNuPress
+        It will also add the contribution of the neutrinos to the energy density
+        via eps_nu = 3 P_nu / rho
+        """
+        assert not(ye == 'NuFull' and 'quantity' not in tempPrescription), \
+            "NuFull Beta-Eq not supported for fixedQuantityPrescription"
+
+        tempOfLog10Rhob = self.tempOfLog10RhobFuncFromPrescription(tempPrescription, ye)
+
         log10numberdensityMin = 2.67801536139756E+01
         log10numberdensityMax = 3.97601536139756E+01  # = 1e16 g/cm^3
 
@@ -208,19 +246,29 @@ class eosDriver(object):
             if ye is None and temp is not None:
                 self.setBetaEqState({'rho':rho_b_CGS, 'temp': temp})
             elif ye is None and temp is None:
+                quantity = tempPrescription['quantity']
+                target = tempPrescription['target']
                 self.setConstQuantityAndBetaEqState({'rho': rho_b_CGS},
                                                     quantity,
                                                     target)
+            elif ye == 'NuFull':
+                self.setNuFullBetaEqState({'rho': rho_b_CGS, 'temp': temp})
             else:
                 self.setState({'rho': rho_b_CGS, 'temp': temp, 'ye': ye})
 
-            logpress, logeps = self.query(['logpress', 'logenergy'])
+            logpress, logeps, munu = self.query(['logpress', 'logenergy', 'munu'])
+            #print logpress, rho_b_CGS
+            P_nu = 0.0
+            if addNeutrinoTerms:
+                P_nu = P_nu_of(rho_b_CGS, temp, munu)
+            logpress = numpy.log10(numpy.power(10.0, logpress) + P_nu)
+            eps_nu = 3.0 * P_nu / rho_b_CGS
 
             #Total energy density (1.0 + eps) is in AGEO units
-
-            eps = (numpy.power(10.0, logeps) - self.energy_shift)\
+            eps = (numpy.power(10.0, logeps) - self.energy_shift + eps_nu)\
                   * consts.AGEO_ERG / consts.AGEO_GRAM
-
+            #print logpress
+            #print
             totalEnergyDensity = rho_b_CGS * (1.0 + eps)
             logTotalEnergyDensity = numpy.log10(totalEnergyDensity)
             #print logrho_b_CGS ,logeps,  numpy.power(10.0, logeps), eps, self.energy_shift
@@ -241,9 +289,12 @@ class eosDriver(object):
         Function lets the user specify an arbitrary function of the independent
         variable, x, and the quantity q as what we are solving for.
         Defaults to simply the quantity.
+        pointAsFunctionOfSolveVar lets you specify logtemp as a function of
+        solveVar.  Right now hardcoded so only uses logtemp :(
+        Warning: Clears physical state!
         """
         assert isinstance(pointDict, dict)
-        self.validatePointDict(pointDict)
+
         assert len(pointDict) < 3, "Can't solve anything if you've specified more than 2 indVars!"
         assert len(pointDict) > 1, "Solve is under-determined with less than 2 indVars!"
 
@@ -251,11 +302,6 @@ class eosDriver(object):
         #solveRoot = solveRootBisect
         solveVar = [indVar for indVar in self.indVars if indVar not in pointDict][0]
 
-        #NOTE POINTASFUNCTIONOFSOLVERDICT MUST BE IN SAME FORMAT AS POINTDICT
-        #TODO FIX THIS HARD CODING FUCK FUKC FUCK
-        if pointAsFunctionOfSolveVar(14.0) is None:
-            val = pointDict['logtemp']
-            pointAsFunctionOfSolveVar = lambda x: val
         #todo: add some good asserts for bounds
         #NOTE BOUNDS MUST BE IN LOGVAR!!!
         if bounds is not None:
@@ -265,7 +311,28 @@ class eosDriver(object):
             boundMin = self.h5file[solveVar][0]
             boundMax = self.h5file[solveVar][-1]
 
+        #todo Fix this hack for BetaEq
+        setBetaEqInSolve = False
+        if 'ye' in pointDict and pointDict['ye'] == 'BetaEq':
+            self.clearState()
+            setBetaEqInSolve = True
+            pointDict['ye'] = 0.1  # do not like this hack; necessary to pass pointDict validation
+
+        self.validatePointDict(pointDict)
+
+        #TODO FIX THIS HARD CODING FUCK FUKC FUCK
+        if pointAsFunctionOfSolveVar(14.0) is None:
+            val = pointDict['logtemp']
+            pointAsFunctionOfSolveVar = lambda x: val
+
         indVarsTable = self.getIndVarsTable()
+
+        if setBetaEqInSolve:
+            if self.cachedBetaEqYeVsRhos is not None:
+                cachedBetaEqYeVsRhos = self.cachedBetaEqYeVsRhos
+            else:
+                cachedBetaEqYeVsRhos = self.getBetaEqYeVsRhobTable(pointAsFunctionOfSolveVar,
+                                                                   boundMin, boundMax)
 
         def quantityOfSolveVar(x):
             #Here we construct the point to interpolate at, but we
@@ -284,8 +351,15 @@ class eosDriver(object):
                 #print indVar, value
                 point.append(value)
             point = tuple(point)
-            #print point
-            #print indVarsTable
+            if setBetaEqInSolve:
+                tempPointDict = {self.indVars[i]: point[i]
+                                 for i in range(len(self.indVars)) if not self.indVars[i] == 'ye'}
+                yeForSolve = linInterp(tempPointDict['logrho'],
+                                       cachedBetaEqYeVsRhos[0],
+                                       cachedBetaEqYeVsRhos[1])
+                tempPointDict.update({'ye': yeForSolve})
+                point = self.pointFromDict(tempPointDict)
+                del tempPointDict
             answer = function(x, multidimInterp(point, indVarsTable,
                                                 self.h5file[quantity][...],
                                                 linInterp, 2)
@@ -295,12 +369,15 @@ class eosDriver(object):
         try:
             answer = solveRoot(quantityOfSolveVar, boundMin, boundMax, (), tol)
         except ValueError as err:
-            #TODO: WARNING THIS IS WRONG IF FUNCTION OPTION IS SPECIFIED
+            #todo: note this is slightly incorrect if pointAsFunctionOfSolveVar is specified
             print "Error in root solver solving for %s: " % solveVar, str(err)
             answer = self.findIndVarOfMinAbsQuantity(solveVar,
                                                      self.pointFromDict(pointDict),
-                                                     quantity)
+                                                     quantity,
+                                                     function,
+                                                     target)
             print "Recovering with findIndVarOfMinAbsQuantity, answer: %s" % answer
+
         return answer
 
     def tableIndexer(self, indVar, i):
@@ -355,13 +432,18 @@ class eosDriver(object):
 
         return tuple(result)
 
-    def findIndVarOfMinAbsQuantity(self, indVar, point, quantity):
+    def findIndVarOfMinAbsQuantity(self, indVar, point, quantity,
+                                   function=(lambda x, q: q), target=0.0):
         """
         Given an independent variable indVar,
          The values of the other independent variables as point,
          and a dependent variable quantity,
         Find for what value of indVar's table grid-points is
         quantity closest to zero.  Uses simple sequential search.
+        Designed for use in conjunction with solveForQuantity.
+        If function is specified, it searches for
+        function(indVar, quantity closest to zero)
+        If target specified finds closest value to target
         """
         assert indVar in self.indVars, "Input indVar %s is not a valid indVar!" % indVar
 
@@ -371,9 +453,11 @@ class eosDriver(object):
 
         for i, var in enumerate(self.h5file[indVar][:]):
             index = self.tableIndexer(indVar, i)
-            thisQuantity = multidimInterp(point, indVarsTable,
-                                          self.h5file[quantity][index],
-                                          linInterp, 2)
+            thisQuantity = function(var,
+                                    multidimInterp(point, indVarsTable,
+                                                   self.h5file[quantity][index],
+                                                   linInterp, 2)
+                                    ) - target
             if abs(thisQuantity) < closestQuantity:
                 closestIndVar = var
                 closestQuantity = abs(thisQuantity)
@@ -388,8 +472,6 @@ class eosDriver(object):
         assert isinstance(pointDict, dict)
         assert 'ye' not in pointDict, "Can't set ye since we're solving for it!"
         self.validatePointDict(pointDict)
-        
-        hc_mevcm = CGS_H / (CGS_EV * 1.e6) * CGS_C
 
         logtempMin = self.h5file['logtemp'][0]
         if Ylep is None:
@@ -418,18 +500,89 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe
 
+    def getBetaEqYeVsRhobTable(self, logtempFunc, logrhoMin=-1e300,  logrhoMax=1e300):
+        """
+        Given a logtemp(logrho) function, compute the ye for beta equilibrium at
+        all logrho gridpoints.  If rhoMax/rhoMin specified only get those rhos
+        """
+        assert logrhoMax > logrhoMin, "Really?  I mean, really?"
+        boundsFudgeFactor = 0.1  # In units of logrho
+        logrhos = []
+        #print logrhoMin, logrhoMax
+        yes = []  # that is multiple YEs, not 'yes sir'
+        for lr in self.h5file['logrho'][:]:
+            if lr >= logrhoMax + boundsFudgeFactor:
+                break
+            # 0.1 fudge factor
+            if lr >= logrhoMin - boundsFudgeFactor:
+                thislogT = logtempFunc(lr)
+                logrhos.append(lr)
+                betaEqYe = self.solveForQuantity({'logrho': lr, 'logtemp': thislogT},
+                                                 'munu', 0.0)
+                yes.append(betaEqYe)
+            else:
+                continue
+
+        return logrhos, yes
+
+    def resetCachedBetaEqYeVsRhobs(self, tempFunc, *args):
+        logtempFunc = lambda lr: numpy.log10(tempFunc(lr))
+        self.cachedBetaEqYeVsRhos = self.getBetaEqYeVsRhobTable(logtempFunc, *args)
+
+    def getRhobVsEdTable(self, logtempFunc, ye, logrhoMin=-1e300,  logrhoMax=1e300):
+        """
+        Given a logtemp(logrho) function, compute the ye for beta equilibrium at
+        all logrho gridpoints.  If rhoMax/rhoMin specified only get those rhos
+        """
+        edFunc = lambda x, q: numpy.power(10.0, x) \
+                            * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
+        assert logrhoMax > logrhoMin, "Really?  I mean, really?"
+        boundsFudgeFactor = 0.1  # In units of logrho
+        logrhos = []
+        #print logrhoMin, logrhoMax
+        eds = []
+        for lr in self.h5file['logrho'][:]:
+            if lr >= logrhoMax + boundsFudgeFactor:
+                break
+            # 0.1 fudge factor
+            if lr >= logrhoMin - boundsFudgeFactor:
+                thislogT = logtempFunc(lr)
+                logrhos.append(lr)
+                if ye == 'BetaEq':
+                    self.setBetaEqState({'logrho': lr, 'logtemp': thislogT})
+                else:
+                    self.setState({'logrho': lr, 'logtemp': thislogT})
+                eds.append(edFunc(lr, self.query('logenergy')))
+            else:
+                continue
+
+        return numpy.log10(eds), logrhos
+
+    def resetCachedRhobVsEds(self, tempFunc, ye, *args):
+        logtempFunc = lambda lr: numpy.log10(tempFunc(lr))
+        self.cachedRhobVsEd = self.getRhobVsEdTable(logtempFunc, ye, *args)
+
+    def rhobFromEdCached(self, ed):
+        """
+        Does linear interpolation in logspace of self.cachedRhobVsEd
+        to invert rhob from given ed
+        """
+        answer = linInterp(numpy.log10(ed),
+                           self.cachedRhobVsEd[0],
+                           self.cachedRhobVsEd[1])
+        return numpy.power(10.0, answer)
+
     def rhobFromEnergyDensity(self, ed, pointDict):
         assert isinstance(pointDict, dict)
         assert 'rho' not in pointDict and 'logrho' not in pointDict, \
             "Can't set rho/logrho since we're solving for it!"
-        self.validatePointDict(pointDict)
 
         edFunc = lambda x, q: numpy.power(10.0,x) \
                               * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
         result = self.solveForQuantity(pointDict, 'logenergy', ed,
-                                       bounds=(4., 16.),
+                                       bounds=(numpy.log10(ed/2.0), numpy.log10(ed)),
                                        function=edFunc)
-        return result
+        return numpy.power(10.0, result)
 
 
     def rhobFromEnergyDensityWithTofRho(self, ed, ye, TofRhoFunc):
@@ -438,10 +591,10 @@ class eosDriver(object):
                               * (1.0 + (numpy.power(10.0, q) - self.energy_shift)/ CGS_C**2)
         tempFunc = lambda x: numpy.log10(TofRhoFunc(x))
         result = self.solveForQuantity({'logtemp': 0.0, 'ye': ye}, 'logenergy', ed,
-                                       bounds=(4., 16.),
+                                       bounds=(numpy.log10(ed/2.0), numpy.log10(ed)),
                                        function=edFunc,
                                        pointAsFunctionOfSolveVar=tempFunc)
-        return result
+        return numpy.power(10.0, result)
 
     def setState(self, pointDict):
         """
@@ -694,10 +847,28 @@ class eosDriver(object):
         self.setState(newDict)
         return currentYe
 
+    def queryTrappedNuPress(self, rho_trap=10. ** 12.5):
+        """
+        Queries the EOS table for the pressure due to trapped neutrinos.
+        See eq (2) & (3) of NSNSthermal paper. rho_trap should be in g/cm^3
+        Note: calls self.query!
+        """
+        # This is a way to recover the independent variables from the class
+        # given that they are ordered properly in setState
+        pointDict = dict()
+        for i, var in enumerate(self.indVars):
+            pointDict[var] = self.physicalState[i]
+        temp_mev = numpy.power(10.0, pointDict['logtemp'])
+        rho_cgs = numpy.power(10.0, pointDict['logrho'])
+
+        munu_mev = self.query('munu')
+
+        return P_nu_of(rho_cgs, temp_mev, munu_mev, rho_trap)
+
     #TODO: query should check to make sure quantity is a valid quantity in the h5file
     def query(self, quantities, deLog10Result=False):
         """
-        Query's the EOS table looking for 'quantity' at set physical state
+        Queries the EOS table looking for 'quantity' at set physical state
         Note: query clears physical state after quantity is determined!
         """
         assert all([var is not None for var in self.physicalState]), \
@@ -712,7 +883,7 @@ class eosDriver(object):
         answers = self.interpolateTable(tableIndexes, quantities)
         self.clearState()
         if deLog10Result:
-            answers = numpy.power(10.0,answers)
+            answers = numpy.power(10.0, answers)
         return answers
 
     #just does trilinear interpolation; does NOT try and account/correct
@@ -774,12 +945,25 @@ class eosDriver(object):
         else:
             return answers
 
-        # print xs
-        # print x0
-        # print x1
-        # print numpy.shape(self.h5file[quantity])
-        # print self.h5file[quantity][tableIndex]
 
+def P_nu_of(rho_cgs, temp_mev, munu_mev, rho_trap=10 ** 12.5):
+    """
+    Returns trapped neutrino pressure as function of variables it
+    depends on.  Default trapping density is fiducial value of
+    10^12.5 g/cm^3.
+    """
+    eta_nu = munu_mev / temp_mev
+
+    # First term
+    P_nu = 4.0 * numpy.pi / 3.0 * temp_mev ** 4.0 / hc_mevcm ** 3.0
+    # Fermi integral term
+    P_nu *= 21.0 / 60.0 * numpy.pi ** 4.0 \
+            + 0.5 * eta_nu ** 2 * (numpy.pi ** 2 + 0.5 * eta_nu ** 2)
+    # Decoupling at lower densities
+    P_nu *= numpy.exp(-rho_trap / rho_cgs)
+
+    # convert from MeV to erg and return
+    return P_nu * (CGS_EV * 1.0e6)
 
 def getTRollFunc(Tmax, Tmin, mid, scale):
     """

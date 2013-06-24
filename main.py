@@ -22,8 +22,10 @@ logrhos = numpy.arange(10.0,16.0,0.05)
 rhos = numpy.power(10.0,logrhos)
 
 midsAndScales=[(14.0, 0.5,), (13.5, 0.5), (14.0, 0.25)]
-#ls220.writeRotNSeosfile("test2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit2'}, 0.15)
+#ls220.writeRotNSeosfile("test10WithNuYeLess-2.eos", {'funcTofLogRho': 'kentaDataTofLogRhoFit1'}, None, True)
 labels = []
+
+#print shen.getBetaEqYeVsRhobTable(kentaDataTofLogRhoFit1(), 14, 16)
 
 for mid, scale in midsAndScales:
     mpl.plot( logrhos,  getTRollFunc(max,min, mid, scale)(logrhos),
@@ -34,12 +36,21 @@ mpl.ylabel("T (MeV)")
 mpl.xlabel(r"log10($\rho_b$ CGS)")
 #mpl.show()
 
+
 #print ls220.solveForQuantity({'rho': 1e7, 'temp': 1.0}, 'munu', 0., bounds=None)
 #print ls220.solveForQuantity({'rho': 1e15, 'ye': 0.1}, 'entropy', 1., bounds=None)
-ye = 0.1
+ye = 'BetaEq'
+# shen.resetCachedRhobVsEds(getTRollFunc(20., .01, 13.93,.25), ye)
+# print shen.cachedRhobVsEd
+# mpl.loglog(numpy.power(10.0, shen.cachedRhobVsEd[1]), (numpy.power(10.0,shen.cachedRhobVsEd[0])-numpy.power(10.0, shen.cachedRhobVsEd[1]))/numpy.power(10.0, shen.cachedRhobVsEd[1]))
+# mpl.show()
+# exit()
+shen.resetCachedBetaEqYeVsRhobs(getTRollFunc(20., .01, 13.93,.25), 4., 16.)
+shen.resetCachedRhobVsEds(getTRollFunc(20., .01, 13.93,.25), ye)
 for ed in [3.e14,1.e15,2.e15]:
     led = numpy.log10(ed)
-    print pow(10., shen.rhobFromEnergyDensityWithTofRho(ed, ye, getTRollFunc(20., .01, 13.93,.25)))
+
+    print shen.rhobFromEnergyDensityWithTofRho(ed, ye, getTRollFunc(20., .01, 13.93,.25))
     tempFunc = lambda x: numpy.log10(kentaDataTofLogRhoFit2()(x))
     tempFunc = lambda x: -2.0
     tempFunc = lambda x: numpy.log10(getTRollFunc(20., .01, 13.93,.25)(x))
@@ -48,11 +59,13 @@ for ed in [3.e14,1.e15,2.e15]:
                                    bounds=(4.,16.),
                                    pointAsFunctionOfSolveVar=tempFunc,
                                    function=edFunc)
-    shen.setState({'logtemp': tempFunc(result), 'ye': ye, 'logrho': result})
+    cachedResult = shen.rhobFromEdCached(ed)
+    print "result, cachedResult: ", numpy.power(10.0, result), cachedResult
+    shen.setBetaEqState({'logtemp': tempFunc(result), 'logrho': result})
     eps = (numpy.power(10.0, shen.query('logenergy')) - shen.energy_shift) / CGS_C**2
 
     print ed,"\t", numpy.power(10.0, result)
-    print pow(10., shen.rhobFromEnergyDensity(ed, {'logtemp': tempFunc(result), 'ye': ye}))
+    print shen.rhobFromEnergyDensity(ed, {'logtemp': tempFunc(numpy.log10(result)), 'ye': ye})
 
     print "\t", numpy.power(10.0, result)* (1.0 + eps)
 exit()

@@ -13,8 +13,8 @@ program mytov
 
   integer, parameter :: nrhos = 400
   real*8 :: rhos(nrhos),mgravs(nrhos),mbarys(nrhos),rads(nrhos)
-  real*8 :: rho_min = 6.0d14
-  real*8 :: rho_max = 7.49d15
+  real*8 :: rho_min = 4.0d14
+  real*8 :: rho_max = 5.5d14 ! this is reset by readtable
   real*8 :: dlrho, lrho
   real*8 :: buff1,buff2
 
@@ -27,7 +27,6 @@ program mytov
   allocate(output_press(N))
 
   call getarg(1, eosfilename)
-!  eosfilename = "eostable_ye=00.150_s=00.500.dat"
   outfilename = "tov_sequence_"//trim(adjustl(eosfilename))
 
   write(6,*) eosfilename
@@ -60,6 +59,8 @@ program mytov
 end program mytov
 
 #if 0
+! This code can be used to get density profiles of a single TOV for a given
+! density.
   central_density = 1.0d15
   call get_TOV_solutions(central_density,output_rho,output_press,output_mgrav,last_index)
   write(6,*) output_mgrav(last_index)/msun, last_index

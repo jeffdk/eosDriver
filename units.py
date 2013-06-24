@@ -11,6 +11,9 @@ ggrav = 6.6738480e-8 #cgs
 clite = 2.99792458e10 #cgs
 msun = 1.9884e33 #cgs
 
+mev_to_erg = 1.60217733e-6
+h_times_clite = 1.24e-10 # MeVcm
+
 print "Using the following constants:"
 print "G: 6.6738480e-8 cm**3 / g / s**2"
 print "c: 2.99792458e10 cm / s"
