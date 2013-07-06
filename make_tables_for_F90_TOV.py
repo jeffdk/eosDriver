@@ -8,8 +8,9 @@ from tov import *
 
 #define EOSs
 
-#EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
-EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
+EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
+#EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
+#EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"], ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]]
 
 #EOSlist = [             ["GShenNL3",
 #             "GShen_NL3EOS_rho280_temp180_ye52_version_1.1_20120817.h5"]]
@@ -43,8 +44,8 @@ nothing = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
           ]
 
 yes = [0.1,0.15]
-tmin = 5
-tmax = 5
+tmin = 0.5
+tmax = 0.5
 dtemp = 0.5
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
@@ -293,9 +294,36 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 		del myeos
 
 
+def poly(gamma,K):
+	def press(rho,gamma,K):
+		return K*rho**gamma
+	def eps(rho,gamma,K):
+		return K*rho**gamma / (gamma - 1.0) / rho
+        rhomax = 8.0e15
+	rhomin = 1.0e6
+	logrhos = linspace(log10(rhomin*rho_gf),log10(rhomax*rho_gf),nrhos) 
+	eostable = zeros((nrhos,2))
+	eostable[:,0] = log10(press(10.0**logrhos[:],gamma,K))
+	eostable[:,1] = log10(eps(10.0**logrhos[:],gamma,K))
+	# write EOS table
+	sgamma = "%05.4f" % (gamma)
+	sK = "%15.8E" % (K)
+	eostablename = "poly"+"_eostable_G"+sgamma+"_K"+sK+".dat"
+	eosfile=open(eostablename,"w")
+	esstring = "%18.7E\n" % (0.0)
+	eosfile.write(esstring)
+	for i in range(len(eostable[:,0])):
+		sline = "%15.6E %15.6E %15.6E\n" % \
+		    (log10(10.0**logrhos[i]/rho_gf),eostable[i,0],eostable[i,1])
+		eosfile.write(sline)
+	eosfile.close()
+	
+
+#poly(2.75,30000.0)
+
 #fixed_ye_temp(EOSlist,temps,yes)
 
-#fixed_temp_betaeq(EOSlist,temps)
+fixed_temp_betaeq(EOSlist,temps)
 
 #fixed_temp_nfbetaeq_pnu(EOSlist,temps)
 
@@ -305,6 +333,6 @@ def special_BetaEq(EOSlist,temps,yes,mytype):
 #for t in mytypes:
 #    special_fixed_Ye(EOSlist,temps,yes,t)
 
-mytypes2 = ["c20p0","c30p5","c30p10","c30p0","c40p0"]
-for t in mytypes2:
-    special_NFBetaEq_pnu(EOSlist,temps,t)
+#mytypes2 = ["c20p0","c30p5","c30p10","c30p0","c40p0"]
+#for t in mytypes2:
+#    special_NFBetaEq_pnu(EOSlist,temps,t)

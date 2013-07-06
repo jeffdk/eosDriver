@@ -9,6 +9,7 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
     logrhos = linspace(log10(rhomin),log10(rhomax),nrhos)
     eostable = zeros((nrhos,2))
+    eostable2 = zeros((nrhos,4))
     energy_shift = 0.0
 
     print mytype
@@ -254,7 +255,6 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
 
 
     elif(mytype == 'fixed_temp_betaeq'):
-
         eostablename = myeosname+"_eostable_BetaEq_T=%06.3f.dat" % (par1)
 
         energy_shift = myeos.h5file['energy_shift'][0]
@@ -276,6 +276,11 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
             # convert units
             eostable[i,0] = log10(10.0**press * press_gf)
             eostable[i,1] = log10(10.0**eps * eps_gf)
+            eostable2[i,0] = eostable[i,0]
+            eostable2[i,1] = eostable[i,1]
+            eostable2[i,2] = ye
+            eostable2[i,3] = temp
+
 
             print "Making EOS: %15.6E %15.6E %15.6E" % (10.0**logrhos[i],temp,ye)
         energy_shift = energy_shift*eps_gf
@@ -284,9 +289,9 @@ def makeeostable(nrhos,rhomin,rhomax,myeos,myeosname,mytype,par1,par2):
         eosfile=open(eostablename,"w")
         esstring = "%18.9E\n" % (energy_shift/eps_gf)
         eosfile.write(esstring)
-        for i in range(len(eostable[:,0])):
-            sline = "%15.6E %15.6E %15.6E\n" % \
-                (logrhos[i],eostable[i,0],eostable[i,1])
+        for i in range(len(eostable2[:,0])):
+            sline = "%22.14E %22.14E %22.14E %22.14E %22.14E\n" % \
+                (logrhos[i],eostable2[i,0],eostable2[i,1],eostable2[i,2],eostable2[i,3])
             eosfile.write(sline)
         eosfile.close()
 
