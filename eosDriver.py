@@ -352,8 +352,13 @@ class eosDriver(object):
                 point.append(value)
             point = tuple(point)
             if setBetaEqInSolve:
-                tempPointDict = {self.indVars[i]: point[i]
-                                 for i in range(len(self.indVars)) if not self.indVars[i] == 'ye'}
+#                tempPointDict = {self.indVars[i]: point[i]
+#                                 for i in range(len(self.indVars)) if not self.indVars[i] == 'ye'}
+                for i in range(len(self.indVars)):
+                    print self.indVars[i]
+                tempPointDict = []
+                print "Should not have gotten to this point; debug me!"
+                sys.exit()
                 yeForSolve = linInterp(tempPointDict['logrho'],
                                        cachedBetaEqYeVsRhos[0],
                                        cachedBetaEqYeVsRhos[1])
