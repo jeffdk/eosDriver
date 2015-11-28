@@ -8,7 +8,7 @@ from tov import *
 
 #define EOSs
 
-EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
+#EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]] 
 #EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"]]
 #EOSlist = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"], ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]]
 
@@ -21,8 +21,16 @@ EOSlist = [ ["LS220","LS220_234r_136t_50y_analmu_20091212_SVNr26.h5"]]
 #EOSlist = [            ["Hempel_DD2",
 #             "Hempel_DD2EOS_rho234_temp180_ye60_version_1.1_20120817.h5"]]
 
-#EOSlist = [             ["Hempel_SFHo",
-#             "Hempel_SFHoEOS_rho222_temp180_ye60_version_1.1_20120817.h5"]]
+EOSlist = [["Hempel_SFHo","Hempel_SFHoEOS_rho222_temp180_ye60_version_1.1_20120817.h5"],
+           ["Hempel_SFHx","Hempel_SFHxEOS_rho234_temp180_ye60_version_1.1_20120817.h5"],
+           ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
+           ["Hempel_DD2","Hempel_DD2EOS_rho234_temp180_ye60_version_1.1_20120817.h5"],
+           ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
+           ["GShenFSU2.1","GShenFSU_2.1EOS_rho280_temp180_ye52_version_1.1_20120824.h5"],
+           ["GShenNL3","GShen_NL3EOS_rho280_temp180_ye52_version_1.1_20120817.h5"]
+   ]
+
+
 
 #EOSlist = [ ["Hempel_SFHx",
 #             "Hempel_SFHxEOS_rho234_temp180_ye60_version_1.1_20120817.h5"]]
@@ -44,18 +52,18 @@ nothing = [ ["HShen", "HShenEOS_rho220_temp180_ye65_version_1.1_20120817.h5"],
           ]
 
 yes = [0.1,0.15]
-tmin = 0.5
-tmax = 0.5
-dtemp = 0.5
+tmin = 0.05
+tmax = 0.05
+dtemp = 0.01
 ntemp = int((tmax-tmin)/dtemp)+1
 temps = zeros(ntemp)
 for i in range(ntemp):
 	temps[i] = tmin + dtemp*i
 
 
-rhomin = 1.0e6
+rhomin = 1.0e3
 rhomax = 0.0
-nrhos = 400
+nrhos = 500
 
 def fixed_ye_temp(EOSlist,temps,yes):
     for ieos in range(len(EOSlist)):
