@@ -1,29 +1,33 @@
 #!/opt/local/bin/python
 
 import sys
+import numpy
 from units import *
 from numpy import linspace, zeros, log10, pi, sqrt
 from eosDriver import eosDriver
 import makeeostable
 from tov import *
 
-myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
+#myeos = eosDriver('LS220_234r_136t_50y_analmu_20091212_SVNr26.h5')
+myeos = eosDriver('HShenEOS_rho234_temp136_ye50_version2.0_20120706.h5')
 
 # make fixed temperature, Y_e sequence
 tovinfo = tovinfoclass()
 tovinfo.polyK = 100.0
 tovinfo.polyG = 2.0
-tovinfo.nzones = 80000
+tovinfo.nzones = 50000
 tovinfo.rmax = 50.0
 tovinfo.eostype = 3
 
 mytype = "fixed_ye_entropy"
-par1 = 0.5
-par2 = 0.1
-rhomin = 1.0e7
+par1 = 3.0
+par2 = 0.15
+rhomin = 1.0e6
 rhomax = 8.0e15
 tovinfo.eoslrhomin = log10(rhomin*rho_gf)
 tovinfo.eoslrhomax = log10(rhomax*rho_gf)
+
+
 (tovinfo.eostable,tovinfo.eosepsshift,dlrho,tovinfo.logrhos) \
     = makeeostable.makeeostable(\
     tovinfo.nrhos,rhomin,rhomax,myeos,mytype,par1,par2)
@@ -39,7 +43,10 @@ rho_c = 8.615461e-04
 rho_c = 4.0e14*rho_gf
 rho_c = 6.864997E-04
 rho_c = 7.705537E-3
-rho_c = 1.258022215E+15*rho_gf
+rho_c = 2.457988871E+15*rho_gf
+rho_c = 5.179065137E-04
+rho_c = 6.697657691E-04
+rho_c = 5.85e14*rho_gf
 print rho_c*inv_rho_gf
 (tovout,isurf,rad,dr) = tov_integrate(rho_c,tovinfo)
 
