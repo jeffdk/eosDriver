@@ -114,7 +114,7 @@ contains
             temp_temp,temp_ye,temp_eps,flag_return)
        if (flag_return.eq.1) then
           last_valid_index = i-1
-!          write(*,*) "here2"
+          write(*,*) "here2"
           goto 10
        endif
        
@@ -177,7 +177,7 @@ contains
        
        if (temp_rho.lt.2.0d5) then
           last_valid_index = i-1
-!          write(*,*) "here9"
+          write(*,*) "here9"
           goto 10
        endif
 

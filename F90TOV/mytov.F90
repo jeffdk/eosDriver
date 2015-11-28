@@ -11,10 +11,10 @@ program mytov
   integer :: last_index
   integer :: i
 
-  integer, parameter :: nrhos = 400
+  integer, parameter :: nrhos = 100
   real*8 :: rhos(nrhos),mgravs(nrhos),mbarys(nrhos),rads(nrhos)
-  real*8 :: rho_min = 4.0d14
-  real*8 :: rho_max = 5.5d14 ! this is reset by readtable
+  real*8 :: rho_min = 5.0d14
+  real*8 :: rho_max = 1.8d15 ! this is reset by readtable
   real*8 :: dlrho, lrho
   real*8 :: buff1,buff2
 
@@ -34,7 +34,7 @@ program mytov
 
   call readtable(trim(adjustl(eosfilename)))
 
-  rho_max = eos_rhomax*0.999
+!  rho_max = eos_rhomax*0.999
   dlrho = (log10(rho_max) - log10(rho_min)) / (nrhos - 1)
   do i=1,nrhos
      rhos(i) = 10.0d0**(log10(rho_min) + (i-1)*dlrho)
@@ -46,7 +46,7 @@ program mytov
      mgravs(i) = output_mgrav(last_index)/msun
      mbarys(i) = TOVbmass(last_index)/msun
      rads(i) = TOVrad(last_index)
-     write(6,"(i5,1P1E15.6,1P3G12.4)") i,central_density,mgravs(i),mbarys(i),rads(i)/1.0e5
+     write(6,"(i5,1P1E15.6,1P3G15.6)") i,central_density,mgravs(i),mbarys(i),rads(i)/1.0e5
   enddo
 
   open(666,file=outfilename,action="write")
