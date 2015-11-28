@@ -1,5 +1,13 @@
 *.dat
+*.dat~
 *.h5
+*.py~
 *.pyc
 *.pyo
+*.o
+*.a
+*.mod
+*.F90~
+*.tar.gz
+*.bz2
 .idea/
